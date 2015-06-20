@@ -46,6 +46,8 @@ axisMask = 7 # just control position
 motionProxy.wakeUp()
 postureProxy.goToPosture("StandInit", 0.5)
 
+print motionProxy.getSensorNames()
+
 bodyCurrentPos = motionProxy.getPosition(effector, frame, useSensorValues)
 
 # target positions should be within acceptable range of motion ...
@@ -53,29 +55,26 @@ bodyTargetPos = [
     0.1, 
     1, 
     0.1, 
-    currentPos[3], 
-    currentPos[4], 
-    currentPos[5]
+    bodyCurrentPos[3], 
+    bodyCurrentPos[4], 
+    bodyCurrentPos[5]
 ]
 
 bodyTargetPos2 = [
     0.6, 
     0.133, 
     0.07, 
-    currentPos[3], 
-    currentPos[4], 
-    currentPos[5]
+    bodyCurrentPos[3], 
+    bodyCurrentPos[4], 
+    bodyCurrentPos[5]
 ]
 
 headTargetAngles = [0.4, 0.2]
 
-motionProxy.setPositions(effector, frame, targetPos, fractionMaxSpeedBody, axisMask)
+motionProxy.setPositions(effector, frame, bodyTargetPos, fractionMaxSpeedBody, axisMask)
 motionProxy.setAngles(head, headTargetAngles, fractionMaxSpeedHead)
 time.sleep(5)
 # motionProxy.setPositions(effector, frame, targetPos2, fractionOfMaxSpeed, axisMask)
 # time.sleep(2)
 
-# motionProxy.getAngles()
-
-postureProxy.goToPosture("StandInit", 0.5)
 motionProxy.rest()
