@@ -30,3 +30,6 @@ print pitch, yaw
 
 # Head's position, from the Torso coordinate frame
 # [0.0, 0.0, 0.1264999955892563, 0.0, -0.0, 0.0]
+
+# arm length: 0.227007700024
+# rounded arm length: 0.225
