@@ -32,43 +32,24 @@ except Exception, e:
     print "Could not create proxy to ALRobotPosture"
     print "Error was: ", e
 
-effector = "LArm"
-head = ["HeadYaw", "HeadPitch"]
-
-fractionMaxSpeedBody = 0.5
-fractionMaxSpeedHead = 0.05
+names = ["LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw", "LHand"]
+fractionMaxSpeed = 0.2
 useSensorValues = False
 frame = motion.FRAME_TORSO
 axisMask = 7 # just control position
 
 postureProxy.goToPosture("StandInit", 0.5)
 
-bodyCurrentPos = motionProxy.getPosition(effector, frame, useSensorValues)
+straightArmAngles = [1.3, 0.3, -2, 0, 0.5, 0] # point straight outward
 
-# target positions should be within acceptable range of motion ...
-bodyTargetPos = [
-    0.1, 
-    1, 
-    0.1, 
-    bodyCurrentPos[3], 
-    bodyCurrentPos[4], 
-    bodyCurrentPos[5]
-]
+# Set arm straight
+motionProxy.setAngles(names, straightArmAngles, fractionMaxSpeed)
+time.sleep(2)
 
-bodyTargetPos2 = [
-    0.6, 
-    0.133, 
-    0.07, 
-    bodyCurrentPos[3], 
-    bodyCurrentPos[4], 
-    bodyCurrentPos[5]
-]
+print motionProxy.getPosition("Head", frame, useSensorValues)
 
-headTargetAngles = [0.4, 0.2]
+# Point to object
+# 
 
-motionProxy.setPositions(effector, frame, bodyTargetPos, fractionMaxSpeedBody, axisMask)
-motionProxy.setAngles(head, headTargetAngles, fractionMaxSpeedHead)
-time.sleep(5)
-# motionProxy.setPositions(effector, frame, targetPos2, fractionOfMaxSpeed, axisMask)
-# time.sleep(2)
+postureProxy.goToPosture("StandInit", 0.5)
 

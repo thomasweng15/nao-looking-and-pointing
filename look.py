@@ -38,11 +38,10 @@ useSensorValues = False
 frame = motion.FRAME_TORSO
 axisMask = 7 # just control position
 
-motionProxy.wakeUp()
 postureProxy.goToPosture("StandInit", 0.5)
 
 origAngles = [0.0, 0.0]
-targetAngles = [0.5, 0.3] # radians
+targetAngles = [0.61, -0.61] # radians
 
 motionProxy.setAngles(head, targetAngles, fractionMaxSpeed)
 time.sleep(2)
@@ -50,4 +49,4 @@ time.sleep(2)
 motionProxy.setAngles(head, origAngles, fractionMaxSpeed)
 time.sleep(2)
 
-motionProxy.rest()
+postureProxy.goToPosture("StandInit", 0.5)
