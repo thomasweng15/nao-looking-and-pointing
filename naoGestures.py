@@ -98,7 +98,7 @@ class NaoGestures():
 
         # Compute pitch and yaw of unit vector
         pitch = -math.asin(headObjectUnitVector[2])
-        yaw = math.acos(abs(headObjectUnitVector[1]))
+        yaw = math.acos(headObjectUnitVector[0])
         if headObjectUnitVector[1] < 0:
             yaw *= -1
         return pitch, yaw
