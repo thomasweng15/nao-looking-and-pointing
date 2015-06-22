@@ -146,8 +146,9 @@ class NaoGestures():
         time.sleep(sleepTime)
 
 
-torsoObjectVector = [1.0, -1.0, 1.0]
-naoGestures = NaoGestures()
-naoGestures.doGesture("look", torsoObjectVector)
-naoGestures.doGesture("point", torsoObjectVector)
-naoGestures.doGesture("lookandpoint", torsoObjectVector)
+if __name__ == '__main__':
+    torsoObjectVector = [1.0, -1.0, 1.0]
+    naoGestures = NaoGestures()
+    naoGestures.doGesture("look", torsoObjectVector)
+    naoGestures.doGesture("point", torsoObjectVector)
+    naoGestures.doGesture("lookandpoint", torsoObjectVector)
