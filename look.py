@@ -1,5 +1,7 @@
 import sys
 import time
+import numpy
+import math
 
 import motion
 import almath
@@ -32,21 +34,42 @@ except Exception, e:
     print "Could not create proxy to ALRobotPosture"
     print "Error was: ", e
 
-head = ["HeadYaw", "HeadPitch"]
-fractionMaxSpeed = 0.05
-useSensorValues = False
-frame = motion.FRAME_TORSO
-axisMask = 7 # just control position
+TORSO_HEAD_OFFSET = numpy.array([0.0, 0.0, 0.1264999955892563])
 
-postureProxy.goToPosture("StandInit", 0.5)
+# compute magnitude of 3D vector
+def magn(v):
+    return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
 
-origAngles = [0.0, 0.0]
-targetAngles = [0.61, -0.61] # radians
+def look(torsoObjectVector):
+    head = ["HeadPitch", "HeadYaw"]
+    fractionMaxSpeed = 0.05
+    useSensorValues = False
+    frame = motion.FRAME_TORSO
+    axisMask = 7 # just control position
 
-motionProxy.setAngles(head, targetAngles, fractionMaxSpeed)
-time.sleep(2)
+    postureProxy.goToPosture("StandInit", 0.5)
 
-motionProxy.setAngles(head, origAngles, fractionMaxSpeed)
-time.sleep(2)
+    # get unit vector from head to object
+    headObjectVector = torsoObjectVector - TORSO_HEAD_OFFSET
+    headObjectUnitVector = [x / magn(headObjectVector) for x in headObjectVector]
 
-postureProxy.goToPosture("StandInit", 0.5)
+    # compute pitch and yaw of unit vector
+    pitch = -math.asin(headObjectUnitVector[2])
+    yaw = math.acos(abs(headObjectUnitVector[1]))
+    if headObjectUnitVector[1] < 0:
+        yaw *= -1
+
+    # move head to look. setAngles() is a non-blocking call
+    motionProxy.setAngles(head, [pitch, yaw], fractionMaxSpeed)
+    time.sleep(2)
+
+    # move head back. angleInterpolation() is a blocking call
+    originalAngles = [0.0, 0.0]
+    secs = [2, 2]
+    isAbsolute = True
+    motionProxy.angleInterpolation(head, originalAngles, secs, isAbsolute)
+
+    postureProxy.goToPosture("StandInit", 0.5)
+
+torsoObjectVector = [1.0, -1.0, -1.0]
+look(torsoObjectVector)

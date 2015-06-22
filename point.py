@@ -65,7 +65,6 @@ def point(pointingArm, torsoObjectVector):
     frame = motion.FRAME_TORSO
     axisMask = 7 # just control position
 
-    motionProxy.wakeUp()
     postureProxy.goToPosture("StandInit", 0.5)
 
     # vector from shoulder to object
@@ -87,7 +86,8 @@ def point(pointingArm, torsoObjectVector):
 
     # Set arm to original posture. positionInterpolations() is a blocking call
     print "Moving arm back..."
-    motionProxy.positionInterpolations(pointingArm, frame, [initArmPosition], [axisMask], [2])
+    secs = 2
+    motionProxy.positionInterpolations(pointingArm, frame, [initArmPosition], [axisMask], [secs])
     postureProxy.goToPosture("StandInit", 0.5)
 
 torsoObjectVector = [1.0, 1.0, 1.0]
