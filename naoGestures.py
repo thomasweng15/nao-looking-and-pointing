@@ -70,7 +70,7 @@ class NaoGestures():
 
     def point(self, pointingArm, torsoObjectVector):
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
-        IKTarget = self.getIKTarget(shoulderOffset)
+        IKTarget = self.getIKTarget(torsoObjectvector, shoulderOffset)
         sleepTime = 3 # seconds
         self.moveArm(pointingArm, IKTarget, sleepTime) # Move arm to point
         self.moveArm(pointingArm, initArmPosition, sleepTime) # Move arm back
@@ -78,7 +78,7 @@ class NaoGestures():
     def lookAndPoint(self, pointingArm, torsoObjectVector):
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
-        IKTarget = self.getIKTarget(shoulderOffset)
+        IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
         sleepTime = 0 # set individual sleep times to 0
         
         # Move arm and head to gesture
@@ -126,7 +126,7 @@ class NaoGestures():
             sys.exit(1)
         return shoulderOffset, initArmPosition
 
-    def getIKTarget(self, shoulderOffset):
+    def getIKTarget(self, torsoObjectVector, shoulderOffset):
         # vector from shoulder to object
         shoulderObjectVector = torsoObjectVector - shoulderOffset
 
