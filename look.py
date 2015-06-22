@@ -63,11 +63,14 @@ def look(torsoObjectVector):
     motionProxy.setAngles(head, [pitch, yaw], fractionMaxSpeed)
     time.sleep(2)
 
+    motionProxy.setAngles(head, [0, 0], fractionMaxSpeed)
+    time.sleep(2)
+
     # move head back. angleInterpolation() is a blocking call
-    originalAngles = [0.0, 0.0]
-    secs = [2, 2]
-    isAbsolute = True
-    motionProxy.angleInterpolation(head, originalAngles, secs, isAbsolute)
+    # originalAngles = [0.0, 0.0]
+    # secs = [2, 2]
+    # isAbsolute = True
+    # motionProxy.angleInterpolation(head, originalAngles, secs, isAbsolute)
 
     postureProxy.goToPosture("StandInit", 0.5)
 
