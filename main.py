@@ -11,7 +11,7 @@ class GestureController():
 		self.doAction = True
 
 	def parseObjectsCallback(self, objectMsg):
-		if objectMsg.object_id == '1': # grab the first object, as example
+		if objectMsg.object_id == '0': # grab the first object, as example
 			if self.doAction:
 				coords = self.convertCoords(objectMsg.pos)
 				self.naoGestures.doGesture('lookandpoint', coords)
