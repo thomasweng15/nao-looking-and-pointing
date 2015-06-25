@@ -17,7 +17,7 @@ class NaoGestures():
             port = int(lines[1])
         except Exception as e:
             print "Could not open file ip.txt"
-            ipAdd = raw_input("Please write Nao's IP address... ") 
+            ipAdd = raw_input("Please write Nao's IP address... ")
             port = raw_input("Please write Nao's port... ")
 
         # Set motionProxy
@@ -57,7 +57,7 @@ class NaoGestures():
         elif gestureType == "lookandpoint":
             arm = "LArm" if torsoObjectVector[1] >= 0 else "RArm"
             self.lookAndPoint(arm, torsoObjectVector)
-        else: 
+        else:
             print "Error: gestureType must be 'look', 'point', or 'lookandpoint'"
             return
         self.postureProxy.goToPosture("StandInit", 0.5)
@@ -70,7 +70,7 @@ class NaoGestures():
 
     def point(self, pointingArm, torsoObjectVector):
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
-        IKTarget = self.getIKTarget(torsoObjectvector, shoulderOffset)
+        IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
         sleepTime = 3 # seconds
         self.moveArm(pointingArm, IKTarget, sleepTime) # Move arm to point
         self.moveArm(pointingArm, initArmPosition, sleepTime) # Move arm back
@@ -80,15 +80,15 @@ class NaoGestures():
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
         IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
         sleepTime = 0 # set individual sleep times to 0
-        
+
         # Move arm and head to gesture
         self.moveArm(pointingArm, IKTarget, sleepTime)
         self.moveHead(pitch, yaw, sleepTime)
         time.sleep(3)
-        
+
         # Move arm and head back
-        self.moveArm(pointingArm, initArmPosition, sleepTime) 
-        self.moveHead(0, 0, sleepTime) 
+        self.moveArm(pointingArm, initArmPosition, sleepTime)
+        self.moveHead(0, 0, sleepTime)
         time.sleep(3)
 
     def getPitchAndYaw(self, torsoObjectVector):
@@ -122,7 +122,7 @@ class NaoGestures():
             shoulderOffset = self.torsoRShoulderOffset
             initArmPosition = self.rArmInitPos
         else:
-            print "ERROR: Must provide point() with LArm or RArm" 
+            print "ERROR: Must provide point() with LArm or RArm"
             sys.exit(1)
         return shoulderOffset, initArmPosition
 
