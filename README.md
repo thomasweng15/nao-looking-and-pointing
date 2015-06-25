@@ -3,7 +3,7 @@ This project is a supplement to the [kinect2-pointing-recognition](https://githu
 
 The two technologies are joined by ROS: the Kinect publishes object coordinates onto rostopics, and the code in this repo subscribes to the relevant rostopics to grab the coordinates. Some transformation is required. 
 
-Naoqi version 2.1
+Naoqi version 2.1   
 Choregraphe version 2.1.2
 
 `naoGestures.py` contains the `NaoGestures()` class, which controls Nao looking and pointing behavior. Both looking and pointing can be performed at the same time, or independently. 
