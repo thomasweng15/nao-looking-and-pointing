@@ -7,6 +7,12 @@ from naoqi import ALProxy
 
 class NaoGestures():
     def __init__(self):
+        """
+        Initialize a Nao connection.
+
+        Attempts to connect to a Nao using the IP address contained in local file ip.txt, 
+        and will fail if a connection is not available.
+        """
         # Get the Nao's IP and port
         ipAdd = None
         port = None
@@ -36,20 +42,58 @@ class NaoGestures():
             print "Error was: ", e
             sys.exit()
 
+        # Set ttsProxy
+        try:
+            self.ttsProxy = ALProxy("ALTextToSpeech", ipAdd, port)
+        except Exception, e:
+            print "Could not create proxy to ALTextToSpeech"
+            print "Error was: ", e
+            sys.exit()
+
         # Set constants
-        self.torsoHeadOffset = numpy.array([0.0, 0.0, 0.1264999955892563])
-        self.torsoLShoulderOffset = numpy.array([0.0, 0.09000000357627869, 0.10599999874830246])
-        self.torsoRShoulderOffset = numpy.array([0.0, -0.09000000357627869, 0.10599999874830246])
-        self.lArmInitPos = [0.11841137707233429, 0.13498550653457642, -0.04563630372285843, -1.2062638998031616, 0.4280231297016144, 0.03072221577167511]
-        self.rArmInitPos = [0.11877211928367615, -0.13329118490219116, -0.04420270770788193, 1.2169694900512695, 0.4153063893318176, -0.012792877852916718]
+        self.torsoHeadOffset = numpy.array([0.0, 
+                                            0.0, 
+                                            0.1264999955892563])
+        self.torsoLShoulderOffset = numpy.array([0.0, 
+                                                 0.09000000357627869, 
+                                                 0.10599999874830246])
+        self.torsoRShoulderOffset = numpy.array([0.0, 
+                                                -0.09000000357627869, 
+                                                 0.10599999874830246])
+        self.lArmInitPos = [0.11841137707233429, 
+                            0.13498550653457642, 
+                           -0.04563630372285843, 
+                           -1.2062638998031616, 
+                            0.4280231297016144, 
+                            0.03072221577167511]
+        self.rArmInitPos = [0.11877211928367615, 
+                           -0.13329118490219116, 
+                           -0.04420270770788193, 
+                            1.2169694900512695, 
+                            0.4153063893318176, 
+                           -0.012792877852916718]
         self.armLength = 0.22 # in meters, rounded down
         self.frame = motion.FRAME_TORSO
         self.axisMask = 7 # just control position
         self.useSensorValues = False
 
+    def speak(self, text):
+        """
+        Command the robot to read the provided text out loud.
+
+        Arguments:
+        text -- the text for the robot to read
+
+        Returns: none (but causes robot action)
+        """
+
+        self.ttsProxy.say(text)
+
     def doGesture(self, gestureType, torsoObjectVector):
         self.postureProxy.goToPosture("StandInit", 0.5)
-        if gestureType == "look":
+        if gestureType == "none":
+            pass
+        elif gestureType == "look":
             self.look(torsoObjectVector)
         elif gestureType == "point":
             arm = "LArm" if torsoObjectVector[1] >= 0 else "RArm"
@@ -58,7 +102,7 @@ class NaoGestures():
             arm = "LArm" if torsoObjectVector[1] >= 0 else "RArm"
             self.lookAndPoint(arm, torsoObjectVector)
         else:
-            print "Error: gestureType must be 'look', 'point', or 'lookandpoint'"
+            print "Error: gestureType must be 'none', 'look', 'point', or 'lookandpoint'"
             return
         self.postureProxy.goToPosture("StandInit", 0.5)
 
@@ -146,9 +190,14 @@ class NaoGestures():
         time.sleep(sleepTime)
 
 
+    def testMovements(self):
+        """ A test function that looks, points, then looks and points, to a hardcoded target. """
+
+        torsoObjectVector = [1.0, -1.0, 1.0]
+        self.doGesture("look", torsoObjectVector)
+        self.doGesture("point", torsoObjectVector)
+        self.doGesture("lookandpoint", torsoObjectVector)
+
 if __name__ == '__main__':
-    torsoObjectVector = [1.0, -1.0, 1.0]
     naoGestures = NaoGestures()
-    naoGestures.doGesture("look", torsoObjectVector)
-    naoGestures.doGesture("point", torsoObjectVector)
-    naoGestures.doGesture("lookandpoint", torsoObjectVector)
+    

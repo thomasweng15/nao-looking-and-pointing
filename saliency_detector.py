@@ -19,11 +19,11 @@ import eDNsaliency as saliency
 
 
 def generateSaliencyMap(rawimgfile):
-    '''
+    """
     Create a saliency map using the CVPR algorithm. 
     Returns a greyscale image where pixel value indicates saliency, and
     saves this greyscale image in the local directory.
-    '''
+    """
     optparser = saliency.get_optparser()
     opts, args = optparser.parse_args([''])
     outimgfile = 'salmap_' + rawimgfile
@@ -35,10 +35,10 @@ def generateSaliencyMap(rawimgfile):
     return salimg
 
 def identifySaliencyAtLocation(salimg, pixelidxarray):
-    '''
+    """
     Returns the average saliency of the indicated pixels in the raw image.
     Takes a saliency map and an array of pixel indices as (row,col) tuples.
-    '''       
+    """       
     npixels = len(pixelidxarray)
 
     salpixels = [salimg[r][c] for r,c in pixelidxarray]
