@@ -89,6 +89,75 @@ class NaoGestures():
 
         self.ttsProxy.say(text)
 
+    def doIdleBehaviors(self):
+        """
+        Perform small life-like idle behaviors by shifting body and head.
+        """
+        doIdle = True
+
+        self.motionProxy.setStiffnesses("Body", 1.0)
+
+        # Wake up robot
+        self.motionProxy.wakeUp()
+
+        # Send robot to standing position
+        self.postureProxy.goToPosture("StandInit", 0.5)
+
+        # Enable whole body balancer
+        self.motionProxy.wbEnable(True)
+
+        # Legs are constrained fixed
+        self.motionProxy.wbFootState("Fixed", "Legs")
+
+        # Constraint blaance motion
+        self.motionProxy.sbEnableBalanceConstraint(True, "Legs")
+
+        useSensorValues = False
+        frame = motion.FRAME_ROBOT
+        effectorList = ["Torso"]
+
+        dy_max = 0.06
+        dz_max = 0.06
+
+        startTf = motionProxy.getTransform("Torso", frame, useSensorValues)
+
+        while doIdle:
+            # Pick a random distance for hip sway TODO
+            dy = dy_max
+            dz = dz_max
+
+            # Alternate sides of hip sway
+            target1Tf = almath.Transform(startTf)
+            target1Tf.r2_c4 += dy
+            target1Tf.r3_c4 -= dz
+
+            target2Tf = almath.Transform(startTf)
+            target2Tf.r2_c4 -= dy
+            target2Tf.r3_c4 -= dz
+
+            pathTorso = []
+            for i in range(3):
+                pathTorso.append(list(target1Tf.toVector()))
+                pathTorso.append(currentTf)
+                pathTorso.append(list(target2Tf.toVector()))
+                pathTorso.append(currentTf)
+
+            axisMaskList = [almath.AXIS_MASK_ALL]
+
+            timescoef = 0.5
+            timesList = [timescoef]
+
+            motionProxy.transformInterpolations(
+                    effectorList, frame, pathList, axisMaskList, timesList)
+
+
+            # TODO TEST THIS!!!
+
+        # Deactivate body and send robot to sitting pose
+        self.motionProxy.wbEnable(False)
+        self.postureProxy.goToPosture("StandInit", 0.3)
+        self.motionProxy.rest()
+
     def doGesture(self, gestureType, torsoObjectVector):
         self.postureProxy.goToPosture("StandInit", 0.5)
         if gestureType == "none":
