@@ -47,6 +47,7 @@ class NaoGestures():
         self.axisMask = 7 # just control position
         self.useSensorValues = False
 
+
     def doGesture(self, gestureType, torsoObjectVector):
         self.postureProxy.goToPosture("StandInit", 0.5)
         if gestureType == "look":
