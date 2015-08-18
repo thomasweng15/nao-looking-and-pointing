@@ -55,11 +55,18 @@ class ScriptReader():
             utterance = ''
             reference = ''
             inreference = False # is this char part of the reference?
+            intiming = False # is this char part of a timing cue?
             # Parse any action commands
             for char in line:
+                # Allow for comments
+                if char == '#':
+                    break # go to next line
                 # Find object references (bracketed with "<" and ">")
-                if char == "<":
+                if char == "<" and not intiming:
                     inreference = True
+                    continue
+                if char == "[" and not inreference:
+                    intiming = True
                     continue
                 if inreference:
                     # Read until the next '>'
@@ -77,7 +84,18 @@ class ScriptReader():
                         reference = ''
 
                         inreference = False
-
+                elif intiming:
+                    # A timing command will cause the robot to sleep
+                    timing = '' # a timing command
+                    # Read until the next ']'
+                    if not char == ']':
+                        timing = timing + char
+                    else:
+                        try:
+                            sleep(float(timing))
+                        except ValueError:
+                            rospy.logerror('Timing command is not a float: %s',timing)
+                        intiming = False
                 # Extract utterances
                 else:
                     utterance = utterance + char
