@@ -1,8 +1,10 @@
 import sys
 import time
 import math
+import random
 import numpy
 import motion
+import almath
 from naoqi import ALProxy
 
 class NaoGestures():
@@ -76,6 +78,7 @@ class NaoGestures():
         self.frame = motion.FRAME_TORSO
         self.axisMask = 7 # just control position
         self.useSensorValues = False
+        self.gesturing = False # is the robot executing the doGesture function?
 
     def speak(self, text):
         """
@@ -97,10 +100,10 @@ class NaoGestures():
 
         self.motionProxy.setStiffnesses("Body", 1.0)
 
-        # Wake up robot
+        # Send robot to Stand posture
         self.motionProxy.wakeUp()
 
-        # Send robot to standing position
+        # Send robot to Stand Init posture
         self.postureProxy.goToPosture("StandInit", 0.5)
 
         # Enable whole body balancer
@@ -109,22 +112,25 @@ class NaoGestures():
         # Legs are constrained fixed
         self.motionProxy.wbFootState("Fixed", "Legs")
 
-        # Constraint blaance motion
-        self.motionProxy.sbEnableBalanceConstraint(True, "Legs")
+        # Constraint balance motion
+        self.motionProxy.wbEnableBalanceConstraint(True, "Legs")
 
         useSensorValues = False
         frame = motion.FRAME_ROBOT
-        effectorList = ["Torso"]
+        effectorList = ["Torso","LArm","RArm"]
 
-        dy_max = 0.06
-        dz_max = 0.06
+        dy_max = 0.04
+        dz_max = 0.04
 
-        startTf = motionProxy.getTransform("Torso", frame, useSensorValues)
+        startTf = self.motionProxy.getTransform("Torso", frame, useSensorValues)
+        startLArmTf = self.motionProxy.getTransform("LArm", frame, useSensorValues)
+        startRArmTf = self.motionProxy.getTransform("RArm", frame, useSensorValues)
+
 
         while doIdle:
-            # Pick a random distance for hip sway TODO
-            dy = dy_max
-            dz = dz_max
+            # Pick a random distance for hip sway
+            dy = random.uniform(0,dy_max)
+            dz = random.uniform(0,dy) # looks weird if robot squats more than it shifts
 
             # Alternate sides of hip sway
             target1Tf = almath.Transform(startTf)
@@ -135,23 +141,51 @@ class NaoGestures():
             target2Tf.r2_c4 -= dy
             target2Tf.r3_c4 -= dz
 
-            pathTorso = []
-            for i in range(3):
-                pathTorso.append(list(target1Tf.toVector()))
-                pathTorso.append(currentTf)
-                pathTorso.append(list(target2Tf.toVector()))
-                pathTorso.append(currentTf)
+            # Hip sways from side 1 to middle to side 2 to middle
+            pathTorso = [list(target1Tf.toVector()),
+                         startTf,
+                         list(target2Tf.toVector()),
+                         startTf]
 
-            axisMaskList = [almath.AXIS_MASK_ALL]
+            # Arm sway
+            lArmTarget1Tf = almath.Transform(startLArmTf)
+            lArmTarget1Tf.r3_c4 -= dz
+            lArmTarget2Tf = almath.Transform(startLArmTf)
+            lArmTarget2Tf.r3_c4 += dz
 
-            timescoef = 0.5
-            timesList = [timescoef]
+            rArmTarget1Tf = almath.Transform(startRArmTf)
+            rArmTarget1Tf.r3_c4 -= dz
+            rArmTarget2Tf = almath.Transform(startRArmTf)
+            rArmTarget2Tf.r3_c4 += dz
 
-            motionProxy.transformInterpolations(
+            pathLArm = [list(lArmTarget1Tf.toVector()),
+                        startLArmTf,
+                        list(lArmTarget1Tf.toVector()),
+                        startLArmTf]
+            pathRArm = [list(rArmTarget1Tf.toVector()),
+                        startRArmTf,
+                        list(rArmTarget1Tf.toVector()),
+                        startRArmTf]
+
+            axisMaskList = [almath.AXIS_MASK_ALL, # for "Torso"
+                            almath.AXIS_MASK_VEL, # for "LArm"
+                            almath.AXIS_MASK_VEL] # for "RArm"
+
+            timescoef = 1.5 # time between each shift
+            nTimeSteps = 4 # number of discrete points in the idle motion
+            movementTimes = [timescoef*(i+1) for i in range(nTimeSteps)]
+            timesList = [movementTimes] * 3
+
+            pathList = [pathTorso, pathLArm, pathRArm]
+
+            if not self.gesturing:
+                # Use all idle behaviors, including arms
+                self.motionProxy.post.transformInterpolations(
                     effectorList, frame, pathList, axisMaskList, timesList)
-
-
-            # TODO TEST THIS!!!
+            else:
+                # Avoid using arms in idle behaviors
+                self.motionProxy.post.transformInterpolations(
+                    effectorList[0], frame, pathList[0], axisMaskList[0], timesList[0])
 
         # Deactivate body and send robot to sitting pose
         self.motionProxy.wbEnable(False)
@@ -159,6 +193,7 @@ class NaoGestures():
         self.motionProxy.rest()
 
     def doGesture(self, gestureType, torsoObjectVector):
+        self.gesturing = True
         self.postureProxy.goToPosture("StandInit", 0.5)
         if gestureType == "none":
             pass
@@ -174,6 +209,7 @@ class NaoGestures():
             print "Error: gestureType must be 'none', 'look', 'point', or 'lookandpoint'"
             return
         self.postureProxy.goToPosture("StandInit", 0.5)
+        self.gesturing = False
 
     def look(self, torsoObjectVector):
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
