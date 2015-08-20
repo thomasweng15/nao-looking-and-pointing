@@ -1,0 +1,1 @@
+string touch_type

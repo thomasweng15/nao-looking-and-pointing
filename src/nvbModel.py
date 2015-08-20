@@ -6,12 +6,6 @@ Date Created: 8/14/2015
 
 This module defines the nonverbal behavior model. 
 """
-# UNCOMMENT THE FOLLOWING FOR ROS
-#import rospy
-#from kinect2_pointing_recognition.msg import ObjectsInfo
-#from nao-looking-and-pointing.msg import ScriptObjectRef
-#from std_msgs.msg import String
-# --------------------------------
 import cv2
 import numpy as np
 import saliency_detector

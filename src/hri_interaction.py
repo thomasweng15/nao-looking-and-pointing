@@ -6,15 +6,14 @@ Date Created: 8/1/2015
 
 This module runs the HRI construction interaction. 
 """
-# UNCOMMENT THE FOLLOWING FOR ROS
-#import rospy
-#from kinect2_pointing_recognition.msg import ObjectsInfo
-#from nao-looking-and-pointing.msg import ScriptObjectRef
-#from std_msgs.msg import String
+# ROS imports
+import rospy
+from kinect2_pointing_recognition.msg import ObjectsInfo
+from nao_looking_and_pointing.msg import ScriptObjectRef
+from std_msgs.msg import String
 # --------------------------------
 import cv2
 import numpy as np
-import saliency_detector
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
 from nvbModel import NVBModel
@@ -23,14 +22,12 @@ class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
     def __init__(self, script_filename):
-        # UNCOMMENT THE FOLLOWING FOR ROS
-        # rospy.init_node('interaction_controller')
+        rospy.init_node('interaction_controller')
 
         # Subscribe to relevant topics
-        #self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
-        #self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
-        # ---------------------------------
-
+        self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
+        self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
+        
 
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
@@ -81,9 +78,10 @@ class InteractionController():
                 self.objdict[objectMsg.object_id].loc = objectMsg.pos
         else:
             # if this is a new object, add it to objdict
-            o = Lego(objectMsg.object_id, objectMsg.pos, [], '')
+            o = Lego(objectMsg.object_id, objectMsg.pos, objectMsg.color, '')
             self.objdict[objectMsg.object_id] = o
-            #rospy.logdebug("Adding new object (id %d) to object list", objectMsg.object_id) UNCOMMENT
+            rospy.logdebug("Adding new object (id %d) to object list", 
+                objectMsg.object_id)
 
     def objectRefCallback(self, objectRefMsg):
         """
@@ -155,8 +153,8 @@ class Lego():
 
     def __init__(self, idnum, location, color, descriptor_words):
         """
-        Location is a length 3 array of floats. Color is an RGB array. 
-        Descriptor words is an array of words.
+        Location is a length 3 array of floats. Color is a length 3 array of
+        ints represeting an RGB array. Descriptor words is an array of words.
         """
         self.idnum = idnum
         self.loc = location
@@ -165,5 +163,9 @@ class Lego():
 
 
 if __name__ == "__main__":
-    ic = InteractionController('testscript.txt')
+    if len(sys.argv) > 1:
+        scriptname = sys.argv[1]
+    else:
+        scriptname = "testscript.txt"
+    ic = InteractionController(scriptname)
     ic.main()

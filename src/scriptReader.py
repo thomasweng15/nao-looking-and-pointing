@@ -21,13 +21,18 @@ class ScriptReader():
         Create the script reader.
 
         Arguments:
-        script_filename -- a string that indicates the filename of the script to be read
-        refs_on -- boolean that determines whether references get published, defaults to True
+        script_filename -- string that indicates the filename of the script to be read
+        refs_on -- bool that determines whether references get published, defaults to True
         """
 
         # Create publisher for object references
-        self.object_reference_pub = rospy.Publisher('script_object_reference', ScriptObjectRef)
-        rospy.init_node('script_reader')
+        self.object_reference_pub = rospy.Publisher(
+            'script_object_reference', ScriptObjectRef)
+        #rospy.init_node('script_reader')
+
+        # Create listeners for bumper press and tactile feedback
+        self.touch_listener = rospy.Subscriber(
+            'robot_touch',Touch,touchCallback)
 
         # Script of the interaction
         self.script = open(script_filename, 'r')
@@ -37,6 +42,10 @@ class ScriptReader():
 
         # Boolean that determines whether object reference messages get published
         self.refs_on = refs_on
+
+        # Touch sensing
+        self.bumper_touched = False
+        self.head_touched = False
 
 
     def readScript(self):
@@ -90,15 +99,12 @@ class ScriptReader():
                         reference = ''
                         inreference = False
                 elif intiming:
-                    # A timing command will cause the robot to sleep
+                    # A timing command affects the timing of the next utterance
                     # Read until the next ']'
                     if not char == ']':
                         timing = timing + char
                     else:
-                        try:
-                            sleep(float(timing))
-                        except ValueError:
-                            rospy.logerr('Timing command is not a float: %s',timing)
+                        self.performTimingCommand(timing)
                         
                         # Reset to be out of timing state
                         timing = ''
@@ -141,4 +147,35 @@ class ScriptReader():
 
         return objref
 
-#TODO include functionality to "pause" the script until the user taps the robot's head? Could be used for going between segments of one session.
+    def performTimingCommand(self, commandstring):
+        """
+        Parse the timing command and perform the specified action.
+
+        Arguments:
+        commandstring -- a string containing the timing command
+
+        Returns: none (but affects robot behavior)
+        """
+        if timing == 'foot bumper press':
+            # Listen for the next bumper press
+            while not self.bumper_touched:
+                pass
+        elif timing == 'head press':
+            # Listen for tactile head press
+            while not self.head_touched:
+                pass
+        else:
+            # Sleep for the specified amount of time
+            try:
+                performTimingCommand(timing)
+                sleep(float(timing))
+            except ValueError:
+                rospy.logerr('Timing command is not a float: %s',timing)
+  
+    def touchCallback(self, data):
+        if data.touch_type = "Bumper":
+            self.bumper_touched = True
+        elif data.touch_type = "HeadTactile":
+            self.head_touched = True
+        else:
+            raise ValueError("Touch type not recognized: %s", data.touch_type)
