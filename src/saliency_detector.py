@@ -41,10 +41,13 @@ def identifySaliencyAtLocation(salimg, pixelidxarray):
     """       
     npixels = len(pixelidxarray)
 
-    salpixels = [salimg[r][c] for r,c in pixelidxarray]
-    meansalience = sum(salpixels) / npixels
+    if npixels > 0:
+        salpixels = [salimg[r][c] for r,c in pixelidxarray]
+        meansalience = sum(salpixels) / npixels
 
-    return meansalience
+        return meansalience
+    else:
+        return 0
       
      
 if __name__ == '__main__':

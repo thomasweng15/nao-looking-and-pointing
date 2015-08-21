@@ -1,2 +1,2 @@
-string object_id
+uint8 object_id
 string words

@@ -12,7 +12,9 @@ from kinect2_pointing_recognition.msg import ObjectsInfo
 from nao_looking_and_pointing.msg import ScriptObjectRef
 from std_msgs.msg import String
 # --------------------------------
+import sys
 import cv2
+import re
 import numpy as np
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
@@ -21,8 +23,16 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, script_filename):
+    def __init__(self, script_filename, cameraID = 0):
+        """
+        Initialize the controller for the HRI interaction.
+
+        Arguments:
+        script_filename -- string name of a script for the interaction
+        cameraID -- int ID for user view camera, defaults to 0
+        """
         rospy.init_node('interaction_controller')
+        rospy.logdebug('initializing interaction controller')
 
         # Subscribe to relevant topics
         self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
@@ -32,32 +42,45 @@ class InteractionController():
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
 
+        rospy.logwarn('Creating a NaoGestures object')
         # Nao robot
         self.nao = NaoGestures()
 
+        rospy.logwarn('Creating an NVBModel object')
         # NVB model
         self.model = NVBModel()
 
+        rospy.logwarn('Connecting to participant view camera')
         # Initialize camera
-        self.cam = cv2.VideoCapture(0)
+        self.cam = cv2.VideoCapture(cameraID)
 
+        rospy.logwarn('Creating a ScriptReader object')
         # Initialize script reader
         self.scriptreader = ScriptReader(script_filename)
 
+        rospy.logwarn('Initializing hardcoded objects')
+        # FOR TESTING!
+        self.initializeObjects()
+
     def initializeObjects(self):
         """
-        Initialize the hardcoded object colors, IDs, and descriptor words.
+        For testing: initialize hardcoded objects.
+
+        Each object consists of colors, ID, and descriptor words.
 
         Arguments: none
 
         Returns: none
         """
-        o1 = Lego(1,[0,0,0],[255,0,0],'[small, red, cube]') #dummy object
+        o1 = Lego(1,[0,0,0],[255,0,0],[200,0,0],['small','red','cube']) #dummy object
+        o2 = Lego(2,[0.5,0.5,0],[0,100, 0],[0,255,0],['small','green','cube'])
+        o3 = Lego(3,[1,0,0],[0,0,100], [0,0,255],['large','blue','block'])
 
-        self.objdict[1] = o1
+        self.objdict[o1.idnum] = o1
+        self.objdict[o2.idnum] = o2
+        self.objdict[o3.idnum] = o3
 
         # TODO: Hardcode some objects
-
 
     def objectsInfoCallback(self, objectMsg):
         """
@@ -78,7 +101,11 @@ class InteractionController():
                 self.objdict[objectMsg.object_id].loc = objectMsg.pos
         else:
             # if this is a new object, add it to objdict
-            o = Lego(objectMsg.object_id, objectMsg.pos, objectMsg.color, '')
+            o = Lego(objectMsg.object_id,   # ID number
+                     objectMsg.pos,         # 3D position
+                     objectMsg.color_upper, # upper RGB color threshold
+                     objectMsg.color_lower, # lower RGB color threshold
+                     '')                    # descriptor words
             self.objdict[objectMsg.object_id] = o
             rospy.logdebug("Adding new object (id %d) to object list", 
                 objectMsg.object_id)
@@ -97,12 +124,18 @@ class InteractionController():
 
         Returns: none (but moves the robot)
         """
+        rospy.logwarn('Object reference received: %d, %s',
+            objectRefMsg.object_id, objectRefMsg.words)
         
         # Parse object reference message
-        target_id = objectRefMsg.target_object_id
-        if not self.objdict[target_id]:
-            raise ValueError('No object with ID %d in objects dictionary, object reference fails',
-                    target_id)
+        target_id = objectRefMsg.object_id
+        try:
+            self.objdict[target_id]
+        except KeyError:
+            rospy.logerr('No object with ID %d in objects dictionary, \
+            object reference fails', target_id)
+            return
+
         words_spoken = objectRefMsg.words
 
         # Find location of target
@@ -130,17 +163,21 @@ class InteractionController():
 
         Returns: a text string indicating the NVB to perform (see NaoGestures for options)
         """
-        
-        # Grab user view snapshot from webcam for saliency detection
-        s,user_view_img = self.cam.read()
-        if not s:
-            raise IOException("Could not take camera image!")
-        else:
-            cv2.imwrite("userview.jpg",img) # save camera image
+        rospy.logwarn('Finding NVB for reference to object %d', target_id)
 
+        # Grab user view snapshot from webcam for saliency detection
+        s,self.user_view_img = self.cam.read()
+        user_view_fname = 'userview.jpg'
+        if not s:
+            raise IOError("Could not take camera image!")
+        else:
+            cv2.imwrite(user_view_fname,self.user_view_img) # save camera image
+
+        # Turn words spoken into a list without characters
+        words_list = re.findall(r"[\w']+",words_spoken)
         
         # Call NVBModel function that calculates saliency
-        nvb = self.model.calculateNVBForRef(user_view_img, target_id, self.objdict, words_spoken)
+        nvb = self.model.calculateNVBForRef(user_view_fname, target_id, self.objdict, words_list)
         return nvb
 
     def main(self):
@@ -151,14 +188,16 @@ class InteractionController():
 class Lego():
     """ A Lego object, which is the object to be manipulated in the experiment. """
 
-    def __init__(self, idnum, location, color, descriptor_words):
+    def __init__(self, idnum, location, color_upper, color_lower, descriptor_words):
         """
         Location is a length 3 array of floats. Color is a length 3 array of
-        ints represeting an RGB array. Descriptor words is an array of words.
+        ints represeting an RGB array for upper and lower threshold values. 
+        Descriptor words is an array of words.
         """
         self.idnum = idnum
         self.loc = location
-        self.color = color
+        self.color_upper = color_upper
+        self.color_lower = color_lower
         self.words = descriptor_words
 
 

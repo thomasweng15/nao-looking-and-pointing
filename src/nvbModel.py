@@ -13,20 +13,20 @@ import saliency_detector
 class NVBModel():
     """ The nonverbal behavior model. """
 
-    # Global variables - for NaoGestures.doGesture()
-    VERBAL = "none"
-    GAZE = "look"
-    POINT = "point"
-    GAZEANDPOINT = "lookandpoint"
-
     def __init__(self):
         # Parameters - TODO: Define these
         self.w_saliency = 1
         self.w_verbal = 1
         self.w_gaze = 1
-        self.w_gesture = 1
+        self.w_point = 1
 
         self.certainty_threshold = 0.75
+
+        # Global variables - for NaoGestures.doGesture()
+        self.VERBAL = "none"
+        self.GAZE = "look"
+        self.POINT = "point"
+        self.GAZEANDPOINT = "lookandpoint"
 
     def calculateNVBForRef(self, user_view, target_id, object_list, spoken_words):
         """
@@ -36,26 +36,35 @@ class NVBModel():
         when referring to the target object, given the parameters.
 
         Arguments:
-        user_view -- an image from the user's view camera
+        user_view -- the file name of an image from the user's view camera
         target_id -- the ID number of the target object from object_list
         object_list -- a dictionary of objects with their IDs as the key
         spoken_words -- a list of words being spoken
 
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
+
         # Calculate saliency score
         saliency_scores = self.calculateSaliencyScores(user_view, object_list)
-        saliency_scores = saliency_scores * w_saliency
+        for key, value in saliency_scores.iteritems():
+            print('key: ' + str(key) + ', value: ' + str(value))
+            saliency_scores[key] = value * self.w_saliency
 
         # Calculate verbal reference score
         verbal_scores = self.calculateVerbalScores(spoken_words, object_list)
-        verbal_scores = verbal_scores * w_verbal
+        for key, value in verbal_scores.iteritems():
+            print('key: ' + str(key) + ', value: ' + str(value))
+            verbal_scores[key] = value * self.w_verbal
 
         # Calculate gaze score with the robot looking at target object
         gaze_scores = self.calculateGazeScores(target_id, object_list)
+        for key, value in gaze_scores.iteritems():
+            gaze_scores[key] = value * self.w_gaze
 
         # Calculate pointing score with the robot pointing to target object
         point_scores = self.calculatePointScores(target_id, object_list)
+        for key, value in point_scores.iteritems():
+            point_scores[key] = value * self.w_point
 
         # Calculate likelihood scores for all objects given current scene and different combinations
         # of available nonverbal behaviors (verbal only, verbal+gaze, verbal+gesture, verbal+gaze+gesture)
@@ -64,27 +73,27 @@ class NVBModel():
         score_verbal_point = dict()
         score_verbal_gaze_point = dict()
         
-        for o in object_list:
-            score_verbal[o.idnum] = saliency_scores[o.idnum] + verbal_scores[o.idnum]
-            score_verbal_gaze[o.idnum] = score_verbal[o.idnum] + gaze_scores[o.idnum]
-            score_verbal_point[o.idnum] = score_verbal[o.idnum] + point_scores[o.idnum]
-            score_verbal_gaze_point[o.idnum] = score_verbal_gaze[o.idnum] + point_scores[o.idnum]
+        for idnum in object_list:
+            score_verbal[idnum] = saliency_scores[idnum] + verbal_scores[idnum]
+            score_verbal_gaze[idnum] = score_verbal[idnum] + gaze_scores[idnum]
+            score_verbal_point[idnum] = score_verbal[idnum] + point_scores[idnum]
+            score_verbal_gaze_point[idnum] = score_verbal_gaze[idnum] + point_scores[idnum]
 
         # Calculate the certainty score of the target object
         certainty_verbal = self.calculateCertaintyScore(target_id, score_verbal)
-        certainty_verbal_gaze = self.calcluateCertaintyScore(target_id, score_verbal_gaze)
-        certainty_verbal_point = self.calcluateCertaintyScore(target_id, score_verbal_point)
+        certainty_verbal_gaze = self.calculateCertaintyScore(target_id, score_verbal_gaze)
+        certainty_verbal_point = self.calculateCertaintyScore(target_id, score_verbal_point)
         certainty_verbal_gaze_point = self.calculateCertaintyScore(target_id, score_verbal_gaze_point)
 
         # Select NVB based on certainty score
         if certainty_verbal > self.certainty_threshold:
-            return VERBAL
+            return self.VERBAL
         elif certainty_verbal_gaze > self.certainty_threshold:
-            return GAZE
+            return self.GAZE
         elif certainty_verbal_point > self.certainty_threshold:
-            return POINT
+            return self.POINT
         else:
-            return GAZEANDPOINT
+            return self.GAZEANDPOINT
 
 
     def calculateCertaintyScore(self, target_id, scores):
@@ -100,36 +109,39 @@ class NVBModel():
 
         Returns: a certainty score as a float
         """
-
+        print 'calculating saliency scores'
         # Remove zero values from the scores list
         scores_list = [value for value in scores.itervalues() if value != 0]
+        target_score = scores[target_id]
 
-        target_diff = score_verbal[target_id] - np.mean(scores_list)
+        target_diff = target_score - np.mean(scores_list)
         stdev = np.std(scores_list,ddof=1) # DOF = 1 for more accuracy
 
         certainty = target_diff / stdev
 
         return certainty
 
-    def calculateSaliencyScores(self, user_view_img, object_list):
+    def calculateSaliencyScores(self, img_fname, object_list):
         """
         Calculate the saliency of each object from the user's point of view.
 
         Arguments:
-        user_view_img -- an image
+        img_fname -- an image file name
         object_list -- a dictionary containing objects (e.g., Legos)
 
         Returns: a dictionary with object ID as key and saliency as value
         """
-        salmap = saliency_detector.generateSaliencyMap(self.user_view_img)
+        salmap = saliency_detector.generateSaliencyMap(img_fname)
+        user_view_img = cv2.imread(img_fname)
 
         salscores = dict()
-        for obj in object_list:
+        for idnum, obj in object_list.iteritems():
             # Find object position in rgb image by color
-            obj_pos_array = getObjectPixelPosition(user_view_img, obj.color)
+            obj_pos_array = self.getObjectPixelPosition(
+                user_view_img, obj.color_upper, obj.color_lower)
 
             salience = saliency_detector.identifySaliencyAtLocation(salmap, obj_pos_array)
-            salscores[obj.idnum] = salience
+            salscores[idnum] = salience
 
         return salscores
 
@@ -147,13 +159,16 @@ class NVBModel():
         """
         verbalscores = dict()
         
-        for o in object_list:
+        # Sanity check - spoken_words should be a list of strings, not a string
+        assert isinstance(spoken_words, list)
+
+        for idnum, obj in object_list.iteritems():
             score = 0
-            for w in o.words:
+            for w in obj.words:
                 if w in spoken_words:
                     score = score + 1
-            score = float(score) / len(spoken_words)
-            verbalscores[o.idnum] = score
+            total = float(score) / len(spoken_words)
+            verbalscores[idnum] = total
 
         return verbalscores
 
@@ -172,7 +187,13 @@ class NVBModel():
         Returns: a dictionary with object ID as key and gaze score as value
 
         """
-        pass # TODO: Thomas? Raytracing or some other metric like distance from center of gaze cone.
+        # TODO: Thomas? Raytracing or some other metric like distance from center of gaze cone.
+        gazescores = dict()
+        for obj in object_list:
+            gazescores[obj] = 0
+
+        return gazescores
+
 
     def calculatePointScores(self, target_id, object_list):
         """
@@ -188,9 +209,15 @@ class NVBModel():
 
         Returns: a dictionary with object ID as key and pointing score as value.
         """
-        pass # TODO: Thomas? Raytracing or some other metric like distance for center of pointing cone.
+        # TODO: Thomas? Raytracing or some other metric like distance for center of pointing cone.
+        pointscores = dict()
+        for obj in object_list:
+            pointscores[obj] = 0
 
-    def getObjectPixelPosition(self, img, color):
+        return pointscores
+
+
+    def getObjectPixelPosition(self, img, color_upper, color_lower):
         """
         Helper function for calculateSaliencyScores.
 
@@ -198,19 +225,18 @@ class NVBModel():
 
         Arguments:
         img -- an image
-        color -- an RGB tuple
+        color_upper -- an RGB tuple for the upper bounds of the object's color
+        color_lower -- an RGB tuple for the lower bounds of the object's color
 
         Returns: array of (row,col) tuples representing pixels in img
         """
-        # Define color boundaries in RGB 
-        boundaries = ([min(val*0.9,0) for val in color],[max(val*1.1,255) for val in color])
-
-        lower_array = np.array(boundaries[0], dtype = "uint8")
-        upper_array = np.array(boundaries[1], dtyle = "uint8")
+        
+        lower_array = np.array(color_lower, dtype = "uint8")
+        upper_array = np.array(color_upper, dtype = "uint8")
 
         # find where in the image the specified color occurs, and create
         # a binary image based on that
-        binary_img = cv2.inRange(img, lower, upper)
+        binary_img = cv2.inRange(img, lower_array, upper_array)
 
         # get image size
         nrows, ncols = binary_img.shape
