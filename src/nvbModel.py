@@ -9,6 +9,10 @@ This module defines the nonverbal behavior model.
 import cv2
 import numpy as np
 import saliency_detector
+from matplotlib import pyplot as plt
+
+DEBUG = False
+DISPLAYIMAGES = False
 
 class NVBModel():
     """ The nonverbal behavior model. """
@@ -43,18 +47,18 @@ class NVBModel():
 
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
-
+        if DEBUG: print "in NVB model: calculate NVB for ref"
         # Calculate saliency score
         saliency_scores = self.calculateSaliencyScores(user_view, object_list)
         for key, value in saliency_scores.iteritems():
-            print('key: ' + str(key) + ', value: ' + str(value))
             saliency_scores[key] = value * self.w_saliency
+        if DEBUG: print "saliency scores: " + str(saliency_scores)
 
         # Calculate verbal reference score
         verbal_scores = self.calculateVerbalScores(spoken_words, object_list)
         for key, value in verbal_scores.iteritems():
-            print('key: ' + str(key) + ', value: ' + str(value))
             verbal_scores[key] = value * self.w_verbal
+        if DEBUG: print "verbal scores: " + str(verbal_scores)
 
         # Calculate gaze score with the robot looking at target object
         gaze_scores = self.calculateGazeScores(target_id, object_list)
@@ -78,6 +82,8 @@ class NVBModel():
             score_verbal_gaze[idnum] = score_verbal[idnum] + gaze_scores[idnum]
             score_verbal_point[idnum] = score_verbal[idnum] + point_scores[idnum]
             score_verbal_gaze_point[idnum] = score_verbal_gaze[idnum] + point_scores[idnum]
+
+        if DEBUG: print score_verbal
 
         # Calculate the certainty score of the target object
         certainty_verbal = self.calculateCertaintyScore(target_id, score_verbal)
@@ -109,15 +115,24 @@ class NVBModel():
 
         Returns: a certainty score as a float
         """
-        print 'calculating saliency scores'
+        if DEBUG: print "calculating certainty score..."
+
         # Remove zero values from the scores list
-        scores_list = [value for value in scores.itervalues() if value != 0]
+        scores_list = []
+        for value in scores.itervalues():
+            if value != 0:
+                scores_list.append(value)
         target_score = scores[target_id]
+        if DEBUG: 
+            print "...scores list: " + str(scores_list)
+            print "...target score: " + str(target_score)
 
         target_diff = target_score - np.mean(scores_list)
         stdev = np.std(scores_list,ddof=1) # DOF = 1 for more accuracy
 
         certainty = target_diff / stdev
+
+        if DEBUG: print "...certainty score: " + str(certainty)
 
         return certainty
 
@@ -131,7 +146,14 @@ class NVBModel():
 
         Returns: a dictionary with object ID as key and saliency as value
         """
+        if DEBUG: print("calculating saliency...")
+
+        # Create saliency map
         salmap = saliency_detector.generateSaliencyMap(img_fname)
+        nrows, ncols = salmap.shape
+        if DEBUG: 
+            print("...saliency map image size: " + str(nrows) + " x " + str(ncols))
+
         user_view_img = cv2.imread(img_fname)
 
         salscores = dict()
@@ -140,7 +162,8 @@ class NVBModel():
             obj_pos_array = self.getObjectPixelPosition(
                 user_view_img, obj.color_upper, obj.color_lower)
 
-            salience = saliency_detector.identifySaliencyAtLocation(salmap, obj_pos_array)
+            salience = saliency_detector.identifySaliencyAtLocation(
+                salmap, obj_pos_array)
             salscores[idnum] = salience
 
         return salscores
@@ -230,9 +253,25 @@ class NVBModel():
 
         Returns: array of (row,col) tuples representing pixels in img
         """
-        
-        lower_array = np.array(color_lower, dtype = "uint8")
-        upper_array = np.array(color_upper, dtype = "uint8")
+        # Sanity check that upper and lower color values were passed properly
+        for l,u in zip(color_lower, color_upper):
+            if not l <= u:
+                raise AssertionError(
+                    "Lower color %r greater than upper color %r", l, u)
+
+
+        # Because OpenCV actually returns BGR instead of RGB, swap 
+        # the B and R values in the provided color arrays
+        color_lower_bgr = [color_lower[2], color_lower[1], color_lower[0]]
+        color_upper_bgr = [color_upper[2], color_upper[1], color_upper[0]]
+
+        if DEBUG:
+            print("...color bounds: " + 
+                str(color_upper) + "->" + str(color_upper_bgr) + ', ' +
+                str(color_lower) + "->" + str(color_lower_bgr))
+
+        lower_array = np.array(color_lower_bgr, dtype = "uint8")
+        upper_array = np.array(color_upper_bgr, dtype = "uint8")
 
         # find where in the image the specified color occurs, and create
         # a binary image based on that
@@ -240,6 +279,11 @@ class NVBModel():
 
         # get image size
         nrows, ncols = binary_img.shape
+        if DEBUG and DISPLAYIMAGES: 
+            print("...image size: " + str(nrows) + " x " + str(ncols))
+            cv2.imshow('binary image from saliency map',binary_img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()#('binary image from saliency map')
 
         # create the array to return
         white_pixels = []
@@ -248,7 +292,7 @@ class NVBModel():
         # TODO: optimize this loop traversal!
         for row in range(1,nrows):
             for col in range(1,ncols):
-                if binary_img[row,col] == 255:
+                if binary_img[row,col] > 240: # approxximately white
                     white_pixels.append((row,col))
 
         return white_pixels

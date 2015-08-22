@@ -1,4 +1,5 @@
 import sys
+import os
 import time
 import math
 import random
@@ -18,15 +19,16 @@ class NaoGestures():
         # Get the Nao's IP and port
         ipAdd = None
         port = None
+        ipFileName = "/home/kinect/catkin/src/nao_looking_and_pointing/src/ip.txt"
         try:
-            ipFile = open("ip.txt")
+            ipFile = open(ipFileName)
             lines = ipFile.read().replace("\r", "").split("\n")
             ipAdd = lines[0]
             port = int(lines[1])
         except Exception as e:
-            print "Could not open file ip.txt"
+            print "Could not open file " + ipFileName
             ipAdd = raw_input("Please write Nao's IP address... ")
-            port = raw_input("Please write Nao's port... ")
+            port = int(raw_input("Please write Nao's port... "))
 
         # Set motionProxy
         try:

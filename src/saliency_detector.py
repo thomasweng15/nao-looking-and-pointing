@@ -13,7 +13,7 @@ Date: July 30, 2015
 
 Dont forget to cite: Eleonora Vig, Michael Dorr, David Cox. "Large-Scale Optimization of Hierarchical Features for Saliency Prediction in Natural Images," IEEE Computer Vision and Pattern Recognition (CVPR), 2014.
 """
-
+import cv2
 import numpy as np
 import eDNsaliency as saliency
 
@@ -30,9 +30,13 @@ def generateSaliencyMap(rawimgfile):
 
     # This returns a numpy array of arrays, where each row
     # represents a row of pixels in the image.
-    salimg = saliency.eDNsaliency(rawimgfile, outimgfile, opts)
+    saliency.eDNsaliency(rawimgfile, outimgfile, opts)
 
-    return salimg
+    # Flatten 3-channel image into grayscale
+    salimg_color = cv2.imread(outimgfile)
+    salimg_gray = cv2.cvtColor(salimg_color, cv2.COLOR_BGR2GRAY)
+
+    return salimg_gray
 
 def identifySaliencyAtLocation(salimg, pixelidxarray):
     """

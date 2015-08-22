@@ -54,29 +54,32 @@ class NaoSensing(ALModule):
 def main():
 	""" Connect to broker and start sensing module. """
 
-	# Get the Nao's IP and port from file if possible
-	pip = None
-	pport = None
-	try:
-		ipFile = open("ip.txt")
-		lines = ipFile.read().replace("\r", "").split("\n")
-		pip = lines[0] # The IP address of the robot
-		pport = int(lines[1]) # The port NAOqi is listening to
-	except Exception as e:
-		print "Could not open file ip.txt"
-		pip = raw_input("Please write Nao's IP address... ")
-		pport = raw_input("Please write Nao's port... ")
+	print("Connecting to Nao broker")
+	# (per doc.aldebaran.com/1-14/dev/python/reacting_to_events.html)
+	parser = OptionParser()
+	parser.add_option("--pip",
+		help="Parent broker IP. The IP address of the robot",
+		dest="pip")
+	parser.add_option("--pport",
+		help="Parent broker port. The port NAOqi is listening to",
+		dest="pport",
+		type="int")
+	parser.set_defaults(pip="192.168.1.2",pport=9559)
+
+	(opts, args_) = parser.parse_args()
+	pip = opts.pip
+	pport = opts.pport
 
 	# We need this broker to be able to construct
 	# NAOqi modules and subscribe to other modules.
 	# The broker must stay alive until the program exits.
-	# (per doc.aldebaran.com/1-14/dev/python/reacting_to_events.html)
 	broker = ALBroker("sensing_broker",
 		"0.0.0.0", 	# listen to anyone
 		0,			# find a free port and use it
 		pip,		# parent broker IP
 		pport)		# parent broker port
 
+	print("Starting Nao sensing module")
 	global SensingModule
 	SensingModule = NaoSensing("SensingModule")
 

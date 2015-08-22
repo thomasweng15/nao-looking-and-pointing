@@ -15,7 +15,9 @@ from std_msgs.msg import String
 import sys
 import cv2
 import re
+import argparse
 import numpy as np
+from lego import Lego
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
 from nvbModel import NVBModel
@@ -31,8 +33,8 @@ class InteractionController():
         script_filename -- string name of a script for the interaction
         cameraID -- int ID for user view camera, defaults to 0
         """
-        rospy.init_node('interaction_controller')
-        rospy.logdebug('initializing interaction controller')
+        rospy.init_node('interaction_controller', log_level=rospy.INFO)
+        rospy.loginfo('Initializing interaction controller')
 
         # Subscribe to relevant topics
         self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
@@ -42,23 +44,23 @@ class InteractionController():
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
 
-        rospy.logwarn('Creating a NaoGestures object')
+        rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
         self.nao = NaoGestures()
 
-        rospy.logwarn('Creating an NVBModel object')
+        rospy.loginfo('Creating an NVBModel object')
         # NVB model
         self.model = NVBModel()
 
-        rospy.logwarn('Connecting to participant view camera')
+        rospy.loginfo('Connecting to participant view camera')
         # Initialize camera
         self.cam = cv2.VideoCapture(cameraID)
 
-        rospy.logwarn('Creating a ScriptReader object')
+        rospy.loginfo('Creating a ScriptReader object')
         # Initialize script reader
         self.scriptreader = ScriptReader(script_filename)
 
-        rospy.logwarn('Initializing hardcoded objects')
+        rospy.loginfo('Initializing hardcoded objects')
         # FOR TESTING!
         self.initializeObjects()
 
@@ -72,9 +74,9 @@ class InteractionController():
 
         Returns: none
         """
-        o1 = Lego(1,[0,0,0],[255,0,0],[200,0,0],['small','red','cube']) #dummy object
-        o2 = Lego(2,[0.5,0.5,0],[0,100, 0],[0,255,0],['small','green','cube'])
-        o3 = Lego(3,[1,0,0],[0,0,100], [0,0,255],['large','blue','block'])
+        o1 = Lego(1,[0,0,0],[255,40,40],[200,0,0],['small','red','cube']) #dummy object
+        o2 = Lego(2,[0.5,0.5,0],[40,255,40],[0,100, 0],['small','green','cube'])
+        o3 = Lego(3,[1,0,0],[40,40,255],[0,0,100],['large','blue','block'])
 
         self.objdict[o1.idnum] = o1
         self.objdict[o2.idnum] = o2
@@ -143,6 +145,7 @@ class InteractionController():
 
         # Calculate the correct nonverbal behavior to indicate the target
         action_type = self.findNVBForRef(target_id, words_spoken)
+        print "proposed action: " + action_type
 
         # Send action command to the robot
         self.nao.doGesture(action_type, target_loc)
@@ -181,30 +184,26 @@ class InteractionController():
         return nvb
 
     def main(self):
-        self.scriptreader.start()
-
-       
-
-class Lego():
-    """ A Lego object, which is the object to be manipulated in the experiment. """
-
-    def __init__(self, idnum, location, color_upper, color_lower, descriptor_words):
-        """
-        Location is a length 3 array of floats. Color is a length 3 array of
-        ints represeting an RGB array for upper and lower threshold values. 
-        Descriptor words is an array of words.
-        """
-        self.idnum = idnum
-        self.loc = location
-        self.color_upper = color_upper
-        self.color_lower = color_lower
-        self.words = descriptor_words
+        # TODO: Wait for saliency maps and pointing and gaze scores arrays
+        # to initialize, will receive via ROS message
+        self.scriptreader.readScript()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        scriptname = sys.argv[1]
-    else:
-        scriptname = "testscript.txt"
-    ic = InteractionController(scriptname)
+    sys.argv = rospy.myargv(argv=sys.argv)
+
+    parser = argparse.ArgumentParser(description="HRI interaction controller")
+    parser.add_argument('--scriptname',
+        help='the file name of the script for the interaction',
+        dest='scriptname',
+        default='/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt')
+    
+    args = parser.parse_args()
+    script = args.scriptname
+
+    ic = InteractionController(script)
     ic.main()
+
+    rospy.spin() # to allow the script to complete
+
+    sys.exit(0)

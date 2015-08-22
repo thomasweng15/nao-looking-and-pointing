@@ -11,7 +11,7 @@ ROS messages when objects are referenced as defined in the script.
 import re
 import rospy
 from time import sleep
-from nao_looking_and_pointing.msg import ScriptObjectRef
+from nao_looking_and_pointing.msg import ScriptObjectRef, Touch
 from naoGestures import NaoGestures
 
 class ScriptReader():
@@ -32,7 +32,7 @@ class ScriptReader():
 
         # Create listeners for bumper press and tactile feedback
         self.touch_listener = rospy.Subscriber(
-            'robot_touch',Touch,touchCallback)
+            'touch',Touch,self.touchCallback)
 
         # Script of the interaction
         self.script = open(script_filename, 'r')
@@ -60,6 +60,7 @@ class ScriptReader():
 
         Returns: none (but causes robot to speak)
         """
+        rospy.loginfo("Beginning to read script")
 
         alphanumeric = re.compile('[\W_]+')
 
@@ -131,7 +132,10 @@ class ScriptReader():
         Returns: a ScriptObjectRef message
         """
         words = ref.split()
-        
+
+        # Construct the ScriptObjectRef message
+        objref = ScriptObjectRef()
+
         # Make sure the first value is a number
         try:
             int(words[0])
@@ -140,11 +144,15 @@ class ScriptReader():
                     Expected int as first word, found: %s', words[0])
             return False
 
-        # Construct the ScriptObjectRef message
-        objref = ScriptObjectRef()
-        objref.object_id = str(words[0])
+        objref.object_id = int(words[0])
+
+        if not words[1:]:
+            rospy.logerr('Reference in script improperly formatted. \
+                Each reference must contain some words (use "test" as throwaway.)')
+            return False
         objref.words = ' '.join(words[1:])
 
+        rospy.loginfo("Sending script reference message: " + str(objref))
         return objref
 
     def performTimingCommand(self, commandstring):
@@ -156,26 +164,29 @@ class ScriptReader():
 
         Returns: none (but affects robot behavior)
         """
-        if timing == 'foot bumper press':
+        self.bumper_touched = False
+        self.head_touched = False
+        if commandstring == 'foot bumper press':
             # Listen for the next bumper press
             while not self.bumper_touched:
                 pass
-        elif timing == 'head press':
+        elif commandstring == 'head press':
             # Listen for tactile head press
             while not self.head_touched:
                 pass
         else:
             # Sleep for the specified amount of time
             try:
-                performTimingCommand(timing)
-                sleep(float(timing))
+                sleep(float(commandstring))
             except ValueError:
                 rospy.logerr('Timing command is not a float: %s',timing)
   
     def touchCallback(self, data):
-        if data.touch_type = "Bumper":
+        if data.touch_type == "Bumper":
             self.bumper_touched = True
-        elif data.touch_type = "HeadTactile":
+            rospy.loginfo("Bumper press sensed")
+        elif data.touch_type == "HeadTactile":
             self.head_touched = True
+            rospy.loginfo("Head tap sensed")
         else:
             raise ValueError("Touch type not recognized: %s", data.touch_type)

@@ -2,14 +2,15 @@
 	<!-- Arguments passed in from command line -->
 	<arg name="ip" default="192.168.1.2" />
 	<arg name="port" default="9559" />
+	<arg name="script" default="/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt" />
 
 	<!-- Start nodes for the Windows ROSbridge 
 	<node pkg="rosbridge_server" name="rosbridge_websocket" type="rosbridge_websocket"/>        
 	<node pkg="kinect2_pointing_recognition" name="kinect_parser" type="kinect_parser.py"/> -->
 
 	<!-- Start Nao sensing -->
-	<node name="sensing" pkg="nao_looking_and_pointing" type="naoSensing.py" args="--pip $(arg ip) --pport $(arg port)" />
+	<node name="sensing" pkg="nao_looking_and_pointing" type="naoSensing.py" args="--pip $(arg ip) --pport $(arg port)" output="screen"/>
 
 	<!-- Start the node that runs the experiment -->
-	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="testscript.txt" required="true" />
+	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="--scriptname $(arg script)" required="true" output="screen"/>
 </launch>

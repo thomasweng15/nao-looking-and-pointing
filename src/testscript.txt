@@ -1,17 +1,17 @@
-Hello, and welcome to the study. My name is Nao.
-[1]
-Today, you will be helping me build and sort Legos. <1> You can see the Legos in front of you.
-[2]
-First, I need to make sure you can understand my instructions. I will name an object, and your job is to touch the object I mention. You only need to briefly touch the object. I will move quickly. If you are unsure, just pick an object as quickly as possible.
-[2]
-When you are ready, press the bumper on either of my feet.
+Please touch the <2 small blue block>small blue block.
+
+<1 yellow cube>The yellow cube.
+
+To proceed, press the bumper on either of my feet.
 
 [foot bumper press]
 
+Hello, and welcome to the study. Here is a one second paws.
+[1]
+Here is an object reference with no words.<1>
+
 Great!
 [0.5]
-Please touch the <2 small blue block>small blue block.
 [1]
 <3 red rectangle>The red rectangle.
 [1]
-<four yellow cube>The yellow cube.
