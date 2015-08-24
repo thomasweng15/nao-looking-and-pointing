@@ -31,7 +31,7 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, usernum, script_filename='testscript.txt', cameraID=0):
+    def __init__(self, usernum, script_filename, cameraID=0):
         """
         Initialize the controller for the HRI interaction.
 
@@ -91,7 +91,7 @@ class InteractionController():
             'script_object_reference',          # record topic
             'gazepoint_info',                   # record topic
             'face_info',                        # record topic
-            '-o','rosbags/p'+str(usernum)+'_',  # file name of bag
+            '-o','rosbags/p'+str(usernum)+'',  # file name of bag
             '-q'])                              # suppress output
 
     def initializeObjects(self):
@@ -302,15 +302,17 @@ if __name__ == "__main__":
     sys.argv = rospy.myargv(argv=sys.argv)
 
     parser = argparse.ArgumentParser(description="HRI interaction controller")
-    parser.add_argument('--scriptname',
+    parser.add_argument('scriptname',
         help='the file name of the script for the interaction',
-        dest='scriptname',
         default='/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt')
-    
+    parser.add_argument('usernum',
+        help='ID number of the participant (should be unique to participant)')
+
     args = parser.parse_args()
     script = args.scriptname
+    usernum = args.usernum
 
-    ic = InteractionController(script)
+    ic = InteractionController(usernum, script)
     ic.main()
 
     rospy.spin() # to allow the script to complete

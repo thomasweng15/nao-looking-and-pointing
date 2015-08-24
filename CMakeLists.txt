@@ -48,6 +48,7 @@ add_message_files(
 	FILES
 	ScriptObjectRef.msg
 	Touch.msg
+	HumanBehavior.msg
  )
 
 ## Generate services in the 'srv' folder
