@@ -8,15 +8,21 @@ This module runs the HRI construction interaction.
 """
 # ROS imports
 import rospy
-from kinect2_pointing_recognition.msg import ObjectsInfo
+from kinect2_pointing_recognition.msg import ObjectsInfo, GazePointInfo
 from nao_looking_and_pointing.msg import ScriptObjectRef
 from std_msgs.msg import String
 # --------------------------------
 import sys
+import os
+import signal
+import atexit
 import cv2
 import re
 import argparse
+import subprocess
+import threading
 import numpy as np
+from time import sleep
 from lego import Lego
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
@@ -25,21 +31,31 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, script_filename, cameraID = 0):
+    def __init__(self, usernum, script_filename='testscript.txt', cameraID=0):
         """
         Initialize the controller for the HRI interaction.
 
         Arguments:
+        usernum -- ID number for participant
         script_filename -- string name of a script for the interaction
         cameraID -- int ID for user view camera, defaults to 0
         """
+
+        # Handle shutdown gracefully
+        atexit.register(self.shutdown)
+
         rospy.init_node('interaction_controller', log_level=rospy.INFO)
         rospy.loginfo('Initializing interaction controller')
 
         # Subscribe to relevant topics
         self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
         self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
+        self.gazepoint_info_listener = rospy.Subscriber('/gazepoint_info', GazePointInfo, self.gazepointInfoCallback)
         
+        # Start rosbags in a separate thread
+        rosbagthread = threading.Thread(target=self.recordRosbags, 
+                                        args=(usernum,))
+        rosbagthread.start()
 
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
@@ -52,17 +68,31 @@ class InteractionController():
         # NVB model
         self.model = NVBModel()
 
-        rospy.loginfo('Connecting to participant view camera')
-        # Initialize camera
-        self.cam = cv2.VideoCapture(cameraID)
-
         rospy.loginfo('Creating a ScriptReader object')
         # Initialize script reader
         self.scriptreader = ScriptReader(script_filename)
 
-        rospy.loginfo('Initializing hardcoded objects')
-        # FOR TESTING!
-        self.initializeObjects()
+        # rospy.loginfo('Initializing hardcoded objects')
+        # # FOR TESTING!
+        # self.initializeObjects()
+
+        # Precompute the gaze and point scores
+        self.gazescores = dict()
+        self.pointscores = dict()
+        self.waitForGazePointScores()
+
+        # Precompute the saliency scores
+        self.saliency_scores = self.precomputeSaliencyScores(0)
+
+    def recordRosbags(self, usernum):
+        """ Start recording rosbags of selected topics. """
+        self.rosbags = subprocess.Popen(['rosbag','record',
+            'objects_info',                     # record topic
+            'script_object_reference',          # record topic
+            'gazepoint_info',                   # record topic
+            'face_info',                        # record topic
+            '-o','rosbags/p'+str(usernum)+'_',  # file name of bag
+            '-q'])                              # suppress output
 
     def initializeObjects(self):
         """
@@ -84,6 +114,77 @@ class InteractionController():
 
         # TODO: Hardcode some objects
 
+    def waitForGazePointScores(self):
+        """ 
+        Wait for the GazePointInfo messages to arrive. 
+
+        Technically this function only waits for the first 'gaze' and
+        first 'point' GazePointInfo messages, but we expect them all 
+        to come together as a pack.
+        """
+        rospy.logwarn("Waiting for gaze and point scores.")
+        while not (self.gazescores and self.pointscores):
+            sleep(1.0)
+        sleep(1.0) # give time for all messages to be processed by callback
+
+    def gazepointInfoCallback(self, data):
+        """
+        Receive and record gaze and point scores for each object.
+
+        Parse the GazePointInfo message and populate the dictionary of
+        scores for gaze and pointing for each object. Each dictionary
+        (gazescores and pointscores) has target object ID as key and
+        a list of scores as value, where the index of the list is the 
+        object ID associated with that score.
+        """
+
+        if data.type == 'gaze':
+            self.gazescores[data.target_id] = data.scores
+        elif data.type == 'point':
+            self.pointscores[data.target_id] = data.scores
+        else:
+            rospy.logerr("Unrecognized type in GazePointInfo message: " 
+                + str(data.type))
+
+    def precomputeSaliencyScores(self, cameraID):
+        """ 
+        Precompute the saliency scores of the scene. 
+
+        Connects to the user view camera signified by cameraID, and 
+        computes the saliency score for each object in self.objdict
+
+        Arguments: 
+        cameraID -- int signifying ID of user view camera
+
+        Returns: a dict of saliency scores
+        """
+
+        rospy.logwarn('Precomputing saliency scores. This might take a moment.')
+
+        # Initialize camera
+        rospy.loginfo('Connecting to participant view camera.')
+        cam = cv2.VideoCapture(cameraID)
+
+        # Grab user view snapshot from camera for saliency detection
+        s,self.user_view_img = cam.read()
+        user_view_fname = 'userview.jpg'
+        if not s:
+            raise IOError("Could not take camera image!")
+        else:
+            # Save camera image
+            cv2.imwrite(user_view_fname,self.user_view_img)
+
+        # Close camera
+        cam.release()
+
+        # Call saliency score computing function from NVB model
+        saliency_scores = self.model.calculateSaliencyScores(
+            user_view_fname, self.objdict)
+
+        rospy.loginfo('Saved participant view to ./' + user_view_fname)
+
+        return saliency_scores
+
     def objectsInfoCallback(self, objectMsg):
         """
         Update object positions.
@@ -97,20 +198,21 @@ class InteractionController():
 
         Returns: none
         """
-        if objectMsg.object_id in self.objdict:
+        obj_id = int(objectMsg.object_id)
+
+        if obj_id in self.objdict:
             # if the object location has changed, update it
-            if not objectMsg.pos == self.objdict[objectMsg.object_id].loc:
-                self.objdict[objectMsg.object_id].loc = objectMsg.pos
+            if not objectMsg.pos == self.objdict[obj_id].loc:
+                self.objdict[obj_id].loc = objectMsg.pos
         else:
             # if this is a new object, add it to objdict
-            o = Lego(objectMsg.object_id,   # ID number
+            o = Lego(obj_id,   # ID number
                      objectMsg.pos,         # 3D position
                      objectMsg.color_upper, # upper RGB color threshold
                      objectMsg.color_lower, # lower RGB color threshold
                      '')                    # descriptor words
-            self.objdict[objectMsg.object_id] = o
-            rospy.logdebug("Adding new object (id %d) to object list", 
-                objectMsg.object_id)
+            self.objdict[obj_id] = o
+            rospy.logdebug("Adding new object (id %d) to object list", obj_id)
 
     def objectRefCallback(self, objectRefMsg):
         """
@@ -126,7 +228,7 @@ class InteractionController():
 
         Returns: none (but moves the robot)
         """
-        rospy.logwarn('Object reference received: %d, %s',
+        rospy.loginfo('Script object reference received: %d, %s' %
             objectRefMsg.object_id, objectRefMsg.words)
         
         # Parse object reference message
@@ -166,22 +268,29 @@ class InteractionController():
 
         Returns: a text string indicating the NVB to perform (see NaoGestures for options)
         """
-        rospy.logwarn('Finding NVB for reference to object %d', target_id)
-
-        # Grab user view snapshot from webcam for saliency detection
-        s,self.user_view_img = self.cam.read()
-        user_view_fname = 'userview.jpg'
-        if not s:
-            raise IOError("Could not take camera image!")
-        else:
-            cv2.imwrite(user_view_fname,self.user_view_img) # save camera image
+        rospy.loginfo('Finding NVB for reference to object %d', target_id)
 
         # Turn words spoken into a list without characters
         words_list = re.findall(r"[\w']+",words_spoken)
         
         # Call NVBModel function that calculates saliency
-        nvb = self.model.calculateNVBForRef(user_view_fname, target_id, self.objdict, words_list)
+        nvb = self.model.calculateNVBForRef(
+            self.saliency_scores, target_id, self.objdict, words_list)
         return nvb
+
+    def shutdown(self):
+        """ Shut down cleanly. """
+        rospy.logwarn("Shutting down...")
+
+        # End rosbag recording (from answers.)
+        ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" %
+            self.rosbags.pid, shell=True, stdout=subprocess.PIPE)
+        ps_output = ps_command.stdout.read()
+        retcode = ps_command.wait()
+        assert retcode == 0, "ps command expected 0, returned %d" % retcode
+        for pid_str in ps_output.split("\n")[:-1]:
+            os.kill(int(pid_str), signal.SIGINT)
+        self.rosbags.terminate()
 
     def main(self):
         # TODO: Wait for saliency maps and pointing and gaze scores arrays

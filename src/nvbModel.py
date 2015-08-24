@@ -32,7 +32,7 @@ class NVBModel():
         self.POINT = "point"
         self.GAZEANDPOINT = "lookandpoint"
 
-    def calculateNVBForRef(self, user_view, target_id, object_list, spoken_words):
+    def calculateNVBForRef(self, saliency, target_id, object_list, spoken_words):
         """
         Calculate the nonverbal behavior for the target object.
         
@@ -40,16 +40,23 @@ class NVBModel():
         when referring to the target object, given the parameters.
 
         Arguments:
-        user_view -- the file name of an image from the user's view camera
+        saliency -- EITHER: the file name of an image from the user's view camera,
+                    OR: a dictionary of pre-computed saliency scores
         target_id -- the ID number of the target object from object_list
         object_list -- a dictionary of objects with their IDs as the key
         spoken_words -- a list of words being spoken
 
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
+
         if DEBUG: print "in NVB model: calculate NVB for ref"
-        # Calculate saliency score
-        saliency_scores = self.calculateSaliencyScores(user_view, object_list)
+
+        # Check if saliency scores have been precomputed. If not,
+        # calculate the saliency scores
+        if isinstance(saliency, dict):
+            saliency_scores = saliency
+        else:
+            saliency_scores = self.calculateSaliencyScores(saliency, object_list)
         for key, value in saliency_scores.iteritems():
             saliency_scores[key] = value * self.w_saliency
         if DEBUG: print "saliency scores: " + str(saliency_scores)
