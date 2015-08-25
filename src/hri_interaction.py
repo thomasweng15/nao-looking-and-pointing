@@ -86,12 +86,13 @@ class InteractionController():
 
     def recordRosbags(self, usernum):
         """ Start recording rosbags of selected topics. """
+        rosbagdir = '/home/kinect/catkin/src/nao_looking_and_pointing/src/rosbags/'
         self.rosbags = subprocess.Popen(['rosbag','record',
             'objects_info',                     # record topic
             'script_object_reference',          # record topic
             'gazepoint_info',                   # record topic
             'face_info',                        # record topic
-            '-o','rosbags/p'+str(usernum)+'',  # file name of bag
+            '-o',rosbagdir+'p'+str(usernum),   # file name of bag
             '-q'])                              # suppress output
 
     def initializeObjects(self):
@@ -229,7 +230,7 @@ class InteractionController():
         Returns: none (but moves the robot)
         """
         rospy.loginfo('Script object reference received: %d, %s' %
-            objectRefMsg.object_id, objectRefMsg.words)
+            (objectRefMsg.object_id, objectRefMsg.words))
         
         # Parse object reference message
         target_id = objectRefMsg.object_id
@@ -237,7 +238,7 @@ class InteractionController():
             self.objdict[target_id]
         except KeyError:
             rospy.logerr('No object with ID %d in objects dictionary, \
-            object reference fails', target_id)
+            object reference fails' % target_id)
             return
 
         words_spoken = objectRefMsg.words
@@ -268,7 +269,7 @@ class InteractionController():
 
         Returns: a text string indicating the NVB to perform (see NaoGestures for options)
         """
-        rospy.loginfo('Finding NVB for reference to object %d', target_id)
+        rospy.loginfo('Finding NVB for reference to object %d' % target_id)
 
         # Turn words spoken into a list without characters
         words_list = re.findall(r"[\w']+",words_spoken)
@@ -314,7 +315,5 @@ if __name__ == "__main__":
 
     ic = InteractionController(usernum, script)
     ic.main()
-
-    rospy.spin() # to allow the script to complete
 
     sys.exit(0)
