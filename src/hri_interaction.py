@@ -31,7 +31,7 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, usernum, script_filename, cameraID=0):
+    def __init__(self, usernum, script_filename, cameraID=0, robotIP, robotPort):
         """
         Initialize the controller for the HRI interaction.
 
@@ -39,6 +39,8 @@ class InteractionController():
         usernum -- ID number for participant
         script_filename -- string name of a script for the interaction
         cameraID -- int ID for user view camera, defaults to 0
+        robotIP -- Nao's IP address
+        robotPort -- Nao's port
         """
 
         # Handle shutdown gracefully
@@ -62,15 +64,15 @@ class InteractionController():
 
         rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
-        self.nao = NaoGestures()
+        self.nao = NaoGestures(robotIP, robotPort)
 
         rospy.loginfo('Creating an NVBModel object')
         # NVB model
-        self.model = NVBModel()
+        #self.model = NVBModel()
 
         rospy.loginfo('Creating a ScriptReader object')
         # Initialize script reader
-        self.scriptreader = ScriptReader(script_filename)
+        #self.scriptreader = ScriptReader(script_filename)
 
         # rospy.loginfo('Initializing hardcoded objects')
         # # FOR TESTING!
@@ -79,10 +81,10 @@ class InteractionController():
         # Precompute the gaze and point scores
         self.gazescores = dict()
         self.pointscores = dict()
-        self.waitForGazePointScores()
+        #self.waitForGazePointScores()
 
         # Precompute the saliency scores
-        self.saliency_scores = self.precomputeSaliencyScores(0)
+        #self.saliency_scores = self.precomputeSaliencyScores(0)
 
     def recordRosbags(self, usernum):
         """ Start recording rosbags of selected topics. """

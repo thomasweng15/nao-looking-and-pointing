@@ -9,27 +9,25 @@ import almath
 from naoqi import ALProxy
 
 class NaoGestures():
-    def __init__(self):
+    def __init__(self, robotIp=None, robotPort=None):
         """
         Initialize a Nao connection.
 
-        Attempts to connect to a Nao using the IP address contained in local file ip.txt, 
-        and will fail if a connection is not available.
+        Attempts to connect to the Nao at the IP address and port provided.
+        If none are provided, asks user to input IP and port.
+
+        Arguments:
+        robotIp -- The IP of the robot, defaults to None
+        robotPort -- The port for the robot, defaults to None
         """
         # Get the Nao's IP and port
-        ipAdd = None
-        port = None
-        ipFileName = "/home/kinect/catkin/src/nao_looking_and_pointing/src/ip.txt"
-        try:
-            ipFile = open(ipFileName)
-            lines = ipFile.read().replace("\r", "").split("\n")
-            ipAdd = lines[0]
-            port = int(lines[1])
-        except Exception as e:
-            print "Could not open file " + ipFileName
-            ipAdd = raw_input("Please write Nao's IP address... ")
-            port = int(raw_input("Please write Nao's port... "))
-
+        ipAdd = robotIp
+        port = robotPort
+        if not ipAdd:
+            ipAdd = raw_input("Please enter Nao's IP address: ")
+        if not port:
+            port = int(raw_input("please enter Nao's port: "))
+        
         # Set motionProxy
         try:
             self.motionProxy = ALProxy("ALMotion", ipAdd, port)
@@ -57,7 +55,8 @@ class NaoGestures():
         # Set constants
         self.torsoHeadOffset = numpy.array([0.0, 
                                             0.0, 
-                                            0.1264999955892563])
+                                            #0.1264999955892563])
+                                            0.16])
         self.torsoLShoulderOffset = numpy.array([0.0, 
                                                  0.09000000357627869, 
                                                  0.10599999874830246])
@@ -106,7 +105,7 @@ class NaoGestures():
         self.motionProxy.wakeUp()
 
         # Send robot to Stand Init posture
-        self.postureProxy.goToPosture("StandInit", 0.5)
+        self.postureProxy.goToPosture("Stand", 0.5)
 
         # Enable whole body balancer
         self.motionProxy.wbEnable(True)
@@ -191,12 +190,12 @@ class NaoGestures():
 
         # Deactivate body and send robot to sitting pose
         self.motionProxy.wbEnable(False)
-        self.postureProxy.goToPosture("StandInit", 0.3)
+        self.postureProxy.goToPosture("Stand", 0.3)
         self.motionProxy.rest()
 
     def doGesture(self, gestureType, torsoObjectVector):
         self.gesturing = True
-        self.postureProxy.goToPosture("StandInit", 0.5)
+        self.postureProxy.goToPosture("Stand", 0.5)
         if gestureType == "none":
             pass
         elif gestureType == "look":
@@ -210,10 +209,11 @@ class NaoGestures():
         else:
             print "Error: gestureType must be 'none', 'look', 'point', or 'lookandpoint'"
             return
-        self.postureProxy.goToPosture("StandInit", 0.5)
+        self.postureProxy.goToPosture("Stand", 0.5)
         self.gesturing = False
 
     def look(self, torsoObjectVector):
+        print "----calcluating look----"
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
         sleepTime = 2 # seconds
         self.moveHead(pitch, yaw, sleepTime) # Move head to look
@@ -247,6 +247,9 @@ class NaoGestures():
         headObjectVector = torsoObjectVector - self.torsoHeadOffset
         headObjectUnitVector = [x / self.magn(headObjectVector) for x in headObjectVector]
 
+        print 'headObjectVector = ' + str(headObjectVector)
+        print 'headObjectUnitVector = ' + str(headObjectUnitVector)
+
         # Compute pitch and yaw of unit vector
         pitch = -math.asin(headObjectUnitVector[2])
         yaw = math.acos(headObjectUnitVector[0])
@@ -265,13 +268,15 @@ class NaoGestures():
 
     def setArmVars(self, pointingArm):
         shoulderOffset = None
-        initArmPosition = None
+
+        # Get current arm position from sensor
+        initArmPosition = self.motionProxy.getPosition(
+            pointingArm, self.frame, True)
+ 
         if pointingArm == "LArm":
             shoulderOffset = self.torsoLShoulderOffset
-            initArmPosition = self.lArmInitPos
         elif pointingArm == "RArm":
             shoulderOffset = self.torsoRShoulderOffset
-            initArmPosition = self.rArmInitPos
         else:
             print "ERROR: Must provide point() with LArm or RArm"
             sys.exit(1)
