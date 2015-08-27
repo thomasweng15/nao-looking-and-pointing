@@ -228,6 +228,15 @@ class NaoGestures():
         self.postureProxy.goToPosture("Stand", 0.3)
         return
 
+    def stand(self):
+        """ Stand up. """
+        self.postureProxy.goToPosture('Stand',0.5)
+
+    def sitAndRelax(self):
+        """ Go to sitting position and shut off motor stiffness. """
+        self.postureProxy.goToPosture('Crouch',0.5)
+        self.motionProxy.setStiffnesses('Body',0)
+
     def doGesture(self, gestureType, torsoObjectVector):
         self.gesturing = True
         self.postureProxy.goToPosture("Stand", 0.5)
@@ -248,7 +257,6 @@ class NaoGestures():
         self.gesturing = False
 
     def look(self, torsoObjectVector):
-        print "----calcluating look----"
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
         sleepTime = 2 # seconds
         self.moveHead(pitch, yaw, sleepTime) # Move head to look
