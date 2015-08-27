@@ -278,19 +278,35 @@ class NaoGestures():
         time.sleep(3)
 
     def getPitchAndYaw(self, torsoObjectVector):
-        # Get unit vector from head to object
+        # Get vector from head to object
         headObjectVector = torsoObjectVector - self.torsoHeadOffset
-        headObjectUnitVector = [x / self.magn(headObjectVector) for x in headObjectVector]
+        normalVector = [1.0, 0.0, 0.0]
 
-        print 'headObjectVector = ' + str(headObjectVector)
-        print 'headObjectUnitVector = ' + str(headObjectUnitVector)
+        # Get two dimensional vectors, x-z for pitch, x-y for yaw
+        xzHeadObjectVector = [headObjectVector[0], headObjectVector[2]]
+        xzNormalVector = [normalVector[0], normalVector[2]]
+        xyHeadObjectvector = [headObjectVector[0], headObjectVector[1]]
+        xyNormalVector = [normalVector[0], normalVector[1]]
 
-        # Compute pitch and yaw of unit vector
-        pitch = -math.asin(headObjectUnitVector[2])
-        yaw = math.acos(headObjectUnitVector[0])
-        if headObjectUnitVector[1] < 0:
-            yaw *= -1
+        pitch = self.getAngleBetweenVectors(xzNormalVector, xzHeadObjectVector)
+        yaw = self.getAngleBetweenVectors(xyNormalVector, xyHeadObjectvector)
+
+        # specify rotation direction
+        if headObjectVector[2] > normalVector[2]:
+            pitch = pitch * -1 # negative is pitching towards the back
+        if headObjectVector[1] < normalVector[1]:
+            yaw = yaw * -1 # negative is pitching to the Nao's right
+
         return pitch, yaw
+
+    def getAngleBetweenVectors(self, a, b):
+        """
+        Computes the angle between two vectors.
+        """
+        dotProduct = numpy.dot(a, b)
+        magnitudeA = numpy.linalg.norm(a) # magnitude of vector
+        magnitudeB = numpy.linalg.norm(b) # magnitude of normal
+        return math.acos(dotProduct / (magnitudeA * magnitudeB))
 
     def magn(self, v):
         return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
