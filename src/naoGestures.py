@@ -316,9 +316,6 @@ class NaoGestures():
         magnitudeB = numpy.linalg.norm(b) # magnitude of normal
         return math.acos(dotProduct / (magnitudeA * magnitudeB))
 
-    def magn(self, v):
-        return math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
-
     def moveHead(self, pitch, yaw, sleepTime):
         head = ["HeadPitch", "HeadYaw"]
         fractionMaxSpeed = 0.1
@@ -346,7 +343,7 @@ class NaoGestures():
         shoulderObjectVector = torsoObjectVector - shoulderOffset
 
         # scale vector by arm length
-        shoulderObjectVectorMagn = self.magn(shoulderObjectVector)
+        shoulderObjectVectorMagn = numpy.linalg.norm(shoulderObjectVector)
         ratio = self.armLength / shoulderObjectVectorMagn
         IKTarget = [x*ratio for x in shoulderObjectVector]
 
