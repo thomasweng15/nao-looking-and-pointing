@@ -86,6 +86,20 @@ class InteractionController():
         # Precompute the saliency scores
         #self.saliency_scores = self.precomputeSaliencyScores(0)
 
+    def convertCoords(self, kinectCoords):
+        '''
+        The Kinect and the Nao use define coordinate systems differently. 
+        This function converts Kinect coordinates to Nao coordinates. 
+        '''
+        # originTranslationVector stores the displacement of the origin
+        # in the Kinect coordinate system to the Nao coordinate system.
+        originTranslationVector = [0, -0.4, 0] # hard-coded
+        x = kinectCoords[2] - originTranslationVector[2]
+        y = kinectCoords[0] - originTranslationVector[0]
+        z = kinectCoords[1] - originTranslationVector[1]
+        return [x,y,z]
+
+
     def recordRosbags(self, usernum):
         """ Start recording rosbags of selected topics. """
         rosbagdir = '/home/kinect/catkin/src/nao_looking_and_pointing/src/rosbags/'
@@ -202,15 +216,16 @@ class InteractionController():
         Returns: none
         """
         obj_id = int(objectMsg.object_id)
+        obj_pos = self.convertCoords(objectMsg.pos) # convert from Kinect frame to Nao frame
 
         if obj_id in self.objdict:
             # if the object location has changed, update it
-            if not objectMsg.pos == self.objdict[obj_id].loc:
-                self.objdict[obj_id].loc = objectMsg.pos
+            if not obj_pos == self.objdict[obj_id].loc:
+                self.objdict[obj_id].loc = pos
         else:
             # if this is a new object, add it to objdict
-            o = Lego(obj_id,   # ID number
-                     objectMsg.pos,         # 3D position
+            o = Lego(obj_id,                # ID number
+                     obj_pos,               # 3D position
                      objectMsg.color_upper, # upper RGB color threshold
                      objectMsg.color_lower, # lower RGB color threshold
                      '')                    # descriptor words
