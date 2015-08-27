@@ -31,16 +31,16 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, usernum, script_filename, cameraID=0, robotIP, robotPort):
+    def __init__(self, usernum, script_filename, robotIP, robotPort, cameraID=0):
         """
         Initialize the controller for the HRI interaction.
 
         Arguments:
         usernum -- ID number for participant
         script_filename -- string name of a script for the interaction
-        cameraID -- int ID for user view camera, defaults to 0
         robotIP -- Nao's IP address
         robotPort -- Nao's port
+        cameraID -- int ID for user view camera, defaults to 0
         """
 
         # Handle shutdown gracefully
@@ -68,11 +68,11 @@ class InteractionController():
 
         rospy.loginfo('Creating an NVBModel object')
         # NVB model
-        #self.model = NVBModel()
+        self.model = NVBModel()
 
         rospy.loginfo('Creating a ScriptReader object')
         # Initialize script reader
-        #self.scriptreader = ScriptReader(script_filename)
+        self.scriptreader = ScriptReader(script_filename, robotIP, robotPort)
 
         # rospy.loginfo('Initializing hardcoded objects')
         # # FOR TESTING!
@@ -81,10 +81,10 @@ class InteractionController():
         # Precompute the gaze and point scores
         self.gazescores = dict()
         self.pointscores = dict()
-        #self.waitForGazePointScores()
+        self.waitForGazePointScores()
 
         # Precompute the saliency scores
-        #self.saliency_scores = self.precomputeSaliencyScores(0)
+        self.saliency_scores = self.precomputeSaliencyScores(0)
 
     def convertCoords(self, kinectCoords):
         '''
@@ -128,8 +128,6 @@ class InteractionController():
         self.objdict[o1.idnum] = o1
         self.objdict[o2.idnum] = o2
         self.objdict[o3.idnum] = o3
-
-        # TODO: Hardcode some objects
 
     def waitForGazePointScores(self):
         """ 
@@ -221,7 +219,7 @@ class InteractionController():
         if obj_id in self.objdict:
             # if the object location has changed, update it
             if not obj_pos == self.objdict[obj_id].loc:
-                self.objdict[obj_id].loc = pos
+                self.objdict[obj_id].loc = obj_pos
         else:
             # if this is a new object, add it to objdict
             o = Lego(obj_id,                # ID number
@@ -265,7 +263,7 @@ class InteractionController():
 
         # Calculate the correct nonverbal behavior to indicate the target
         action_type = self.findNVBForRef(target_id, words_spoken)
-        print "proposed action: " + action_type
+        rospy.loginfo("Proposed action: %s" % action_type)
 
         # Send action command to the robot
         self.nao.doGesture(action_type, target_loc)
@@ -311,8 +309,8 @@ class InteractionController():
         self.rosbags.terminate()
 
     def main(self):
-        # TODO: Wait for saliency maps and pointing and gaze scores arrays
-        # to initialize, will receive via ROS message
+        self.nao.stand()
+        sleep(5) # wait for standing behavior to finish
         self.scriptreader.readScript()
 
 

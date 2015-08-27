@@ -16,12 +16,17 @@ from naoGestures import NaoGestures
 
 class ScriptReader():
 
-    def __init__(self, script_filename, refs_on = True):
+    def __init__(self, script_filename, 
+                       robotIP = None, 
+                       robotPort = None, 
+                       refs_on = True):
         """
         Create the script reader.
 
         Arguments:
         script_filename -- string that indicates the filename of the script to be read
+        robotIP -- Nao's IP address, defaults to None
+        robotPort -- Nao's port, defaults to None
         refs_on -- bool that determines whether references get published, defaults to True
         """
 
@@ -38,7 +43,7 @@ class ScriptReader():
         self.script = open(script_filename, 'r')
 
         # Initialize robot controller
-        self.nao = NaoGestures()
+        self.nao = NaoGestures(robotIP, robotPort)
 
         # Boolean that determines whether object reference messages get published
         self.refs_on = refs_on
