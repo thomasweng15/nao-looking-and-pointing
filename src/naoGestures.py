@@ -1,5 +1,7 @@
 import sys
 import os
+import atexit
+import threading
 import time
 import math
 import random
@@ -20,6 +22,9 @@ class NaoGestures():
         robotIp -- The IP of the robot, defaults to None
         robotPort -- The port for the robot, defaults to None
         """
+        # Register shutdown function in case of exit
+        atexit.register(self.robotShutdown)
+
         # Get the Nao's IP and port
         ipAdd = robotIp
         port = robotPort
@@ -79,7 +84,18 @@ class NaoGestures():
         self.frame = motion.FRAME_TORSO
         self.axisMask = 7 # just control position
         self.useSensorValues = False
+
         self.gesturing = False # is the robot executing the doGesture function?
+
+        # Start a thread for idling
+        self.idleThread = threading.Thread(name='idle_thread',
+                                           target=self.doIdleBehaviors)
+        self.idle = threading.Event()
+        self.idleThread.start()
+
+        # Set an exit flag for the thread
+        self.exit = threading.Event()
+
 
     def speak(self, text):
         """
@@ -93,19 +109,23 @@ class NaoGestures():
 
         self.ttsProxy.say(text)
 
+    def startIdle(self):
+        self.idle.set()
+
+    def stopIdle(self):
+        self.idle.clear()
+
+
     def doIdleBehaviors(self):
         """
         Perform small life-like idle behaviors by shifting body and head.
         """
-        doIdle = True
+        self.idle.wait() # Wait for idle flag to be set
 
-        self.motionProxy.setStiffnesses("Body", 1.0)
 
         # Send robot to Stand posture
-        self.motionProxy.wakeUp()
-
-        # Send robot to Stand Init posture
-        self.postureProxy.goToPosture("Stand", 0.5)
+        self.motionProxy.setStiffnesses("Body", 1.0)
+        self.postureProxy.goToPosture("Stand",0.5)
 
         # Enable whole body balancer
         self.motionProxy.wbEnable(True)
@@ -127,45 +147,55 @@ class NaoGestures():
         startLArmTf = self.motionProxy.getTransform("LArm", frame, useSensorValues)
         startRArmTf = self.motionProxy.getTransform("RArm", frame, useSensorValues)
 
+        hipside = 0
 
-        while doIdle:
+        while True:
+            if self.exit.isSet():
+                print threading.currentThread().getName(), " exiting"
+                return
+
+            # Wait for idle flag to be set
+            if not self.idle.isSet():
+                if self.exit.isSet():
+                    return
+                time.sleep(1.0)
+                continue
+
+            print str(self.exit.isSet())
             # Pick a random distance for hip sway
             dy = random.uniform(0,dy_max)
             dz = random.uniform(0,dy) # looks weird if robot squats more than it shifts
 
             # Alternate sides of hip sway
-            target1Tf = almath.Transform(startTf)
-            target1Tf.r2_c4 += dy
-            target1Tf.r3_c4 -= dz
+            if hipside == 0:
+                targetTf = almath.Transform(startTf)
+                targetTf.r2_c4 += dy
+                targetTf.r3_c4 -= dz
+                hipside = 1
+            else:
+                targetTf = almath.Transform(startTf)
+                targetTf.r2_c4 -= dy
+                targetTf.r3_c4 -= dz
+                hipside = 0
 
-            target2Tf = almath.Transform(startTf)
-            target2Tf.r2_c4 -= dy
-            target2Tf.r3_c4 -= dz
-
-            # Hip sways from side 1 to middle to side 2 to middle
-            pathTorso = [list(target1Tf.toVector()),
-                         startTf,
-                         list(target2Tf.toVector()),
-                         startTf]
+            # Hip sways from side to middle
+            pathTorso = [list(targetTf.toVector()), startTf]
 
             # Arm sway
-            lArmTarget1Tf = almath.Transform(startLArmTf)
-            lArmTarget1Tf.r3_c4 -= dz
-            lArmTarget2Tf = almath.Transform(startLArmTf)
-            lArmTarget2Tf.r3_c4 += dz
+            if hipside == 1:
+                lArmTargetTf = almath.Transform(startLArmTf)
+                lArmTargetTf.r3_c4 -= dz
+                rArmTargetTf = almath.Transform(startRArmTf)
+                rArmTargetTf.r3_c4 -= dz
+            else:
+                lArmTargetTf = almath.Transform(startLArmTf)
+                lArmTargetTf.r3_c4 += dz
+                rArmTargetTf = almath.Transform(startRArmTf)
+                rArmTargetTf.r3_c4 += dz
 
-            rArmTarget1Tf = almath.Transform(startRArmTf)
-            rArmTarget1Tf.r3_c4 -= dz
-            rArmTarget2Tf = almath.Transform(startRArmTf)
-            rArmTarget2Tf.r3_c4 += dz
-
-            pathLArm = [list(lArmTarget1Tf.toVector()),
-                        startLArmTf,
-                        list(lArmTarget1Tf.toVector()),
+            pathLArm = [list(lArmTargetTf.toVector()),
                         startLArmTf]
-            pathRArm = [list(rArmTarget1Tf.toVector()),
-                        startRArmTf,
-                        list(rArmTarget1Tf.toVector()),
+            pathRArm = [list(rArmTargetTf.toVector()),
                         startRArmTf]
 
             axisMaskList = [almath.AXIS_MASK_ALL, # for "Torso"
@@ -173,25 +203,30 @@ class NaoGestures():
                             almath.AXIS_MASK_VEL] # for "RArm"
 
             timescoef = 1.5 # time between each shift
-            nTimeSteps = 4 # number of discrete points in the idle motion
+            nTimeSteps = 2 # number of discrete points in the idle motion
             movementTimes = [timescoef*(i+1) for i in range(nTimeSteps)]
             timesList = [movementTimes] * 3
 
             pathList = [pathTorso, pathLArm, pathRArm]
 
-            if not self.gesturing:
-                # Use all idle behaviors, including arms
-                self.motionProxy.post.transformInterpolations(
-                    effectorList, frame, pathList, axisMaskList, timesList)
-            else:
-                # Avoid using arms in idle behaviors
-                self.motionProxy.post.transformInterpolations(
-                    effectorList[0], frame, pathList[0], axisMaskList[0], timesList[0])
+            self.motionProxy.post.transformInterpolations(
+                effectorList, frame, pathList, axisMaskList, timesList)
 
-        # Deactivate body and send robot to sitting pose
+            time.sleep(timescoef+0.5) # add a half-second pause
+
+            # if not self.gesturing:
+            #     # Use all idle behaviors, including arms
+            #     self.motionProxy.post.transformInterpolations(
+            #         effectorList, frame, pathList, axisMaskList, timesList)
+            # else:
+            #     # Avoid using arms in idle behaviors
+            #     self.motionProxy.post.transformInterpolations(
+            #         effectorList[0], frame, pathList[0], axisMaskList[0], timesList[0])
+
+        # Deactivate body
         self.motionProxy.wbEnable(False)
         self.postureProxy.goToPosture("Stand", 0.3)
-        self.motionProxy.rest()
+        return
 
     def doGesture(self, gestureType, torsoObjectVector):
         self.gesturing = True
@@ -301,6 +336,12 @@ class NaoGestures():
         self.motionProxy.setPosition(pointingArm, self.frame, IKTarget, fractionMaxSpeed, self.axisMask)
         time.sleep(sleepTime)
 
+    def robotShutdown(self):
+        """ Sends robot to sit position and turns off stiffness. """
+
+        print("Sending robot to safe position for shutdown.")
+        self.exit.set() # turn off idle thread
+        self.motionProxy.rest()
 
     def testMovements(self):
         """ A test function that looks, points, then looks and points, to a hardcoded target. """
@@ -309,6 +350,9 @@ class NaoGestures():
         self.doGesture("look", torsoObjectVector)
         self.doGesture("point", torsoObjectVector)
         self.doGesture("lookandpoint", torsoObjectVector)
+
+class PausableThread(threading.Thread):
+    """ Thread class that can be paused. """
 
 if __name__ == '__main__':
     naoGestures = NaoGestures()
