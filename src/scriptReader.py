@@ -11,49 +11,55 @@ ROS messages when objects are referenced as defined in the script.
 import re
 import rospy
 from time import sleep
-from nao_looking_and_pointing.msg import ScriptObjectRef, Touch
+from nao_looking_and_pointing.msg import ScriptObjectRef, Touch, Timer
+from std_msgs.msg import String
 from naoGestures import NaoGestures
 
 class ScriptReader():
 
-    def __init__(self, script_filename, 
-                       robotIP = None, 
-                       robotPort = None, 
-                       refs_on = True):
+    def __init__(self, robotIP = None, 
+                       robotPort = None,
+                       interruption = True):
         """
         Create the script reader.
 
         Arguments:
-        script_filename -- string that indicates the filename of the script to be read
         robotIP -- Nao's IP address, defaults to None
         robotPort -- Nao's port, defaults to None
-        refs_on -- bool that determines whether references get published, defaults to True
+        interruption -- bool, should reading stop for an interruption?, defaults True
         """
 
         # Create publisher for object references
         self.object_reference_pub = rospy.Publisher(
             'script_object_reference', ScriptObjectRef)
-        #rospy.init_node('script_reader')
+        self.script_status = rospy.Publisher(
+            'script_status', String)
 
-        # Create listeners for bumper press and tactile feedback
+        #rospy.init_node('script_reader', log_level=rospy.INFO)
+
+        # Create listeners for the cues to wait for
         self.touch_listener = rospy.Subscriber(
             'touch',Touch,self.touchCallback)
-
-        # Script of the interaction
-        self.script = open(script_filename, 'r')
+        self.signal_listener = rospy.Subscriber(
+            'timer_info',Timer,self.timerCallback)
 
         # Initialize robot controller
         self.nao = NaoGestures(robotIP, robotPort)
 
-        # Boolean that determines whether object reference messages get published
-        self.refs_on = refs_on
+        # Interruption signal
+        self.interrupt = interruption
 
         # Touch sensing
         self.bumper_touched = False
         self.head_touched = False
 
+        # Signals to wait for
+        self.timer_start = False
+        self.timer_stop = False
+        self.timer_reset = False
 
-    def readScript(self):
+
+    def readScript(self, script_filename):
         """
         Parse script and send speech commands to robot.
 
@@ -66,6 +72,8 @@ class ScriptReader():
         Returns: none (but causes robot to speak)
         """
         rospy.loginfo("Beginning to read script")
+
+        self.script = open(script_filename, 'r')
 
         alphanumeric = re.compile('[\W_]+')
 
@@ -93,12 +101,12 @@ class ScriptReader():
                         reference = reference + char
                     else:
                         # Speak the utterance to this point
-                        self.nao.speak(utterance)
+                        self.nao.speak(utterance, True) # blocking
                         utterance = ''
 
                         # Send the reference message
                         objectref = self.createObjRefMsg(reference)
-                        if self.refs_on and objectref:
+                        if objectref:
                             self.object_reference_pub.publish(objectref)
                         
                         # Reset to be out of reference state
@@ -120,7 +128,7 @@ class ScriptReader():
                     utterance = utterance + char
 
             # Speak what's left of the utterance
-            self.nao.speak(utterance)
+            self.nao.speak(utterance, True)
 
     def createObjRefMsg(self, ref):
         """
@@ -171,20 +179,57 @@ class ScriptReader():
         """
         self.bumper_touched = False
         self.head_touched = False
+        self.timer_start = False
+        self.timer_stop = False
+        self.timer_reset = False
+
+        rospy.loginfo("Received command: " + commandstring)
+
         if commandstring == 'foot bumper press':
             # Listen for the next bumper press
             while not self.bumper_touched:
-                pass
+                sleep(0.5)
         elif commandstring == 'head press':
             # Listen for tactile head press
             while not self.head_touched:
-                pass
+                sleep(0.5)
+        elif commandstring == 'timer start':
+            while not self.timer_start:
+                sleep(0.5)
+        elif commandstring == 'timer stop':
+            while not self.timer_stop:
+                sleep(0.5)
+        elif commandstring == 'timer reset':
+            while not self.timer_reset:
+                sleep(0.5)
+        elif commandstring == 'interruption start':
+            if self.interrupt:
+                # wait for head press to signal interruption start
+                self.script_status.publish("InterruptionStart")
+                while not self.head_touched:
+                    sleep(0.5)
+        elif commandstring == 'interruption stop':
+            if self.interrupt:
+                self.script_status.publish("InterruptionStop")
+                # wait for head press to signal interruption stop
+                while not self.head_touched:
+                    sleep(0.5)
+        elif (commandstring == 'instructions 1 start' 
+                or commandstring == 'instructions 2 start'):
+            # publish status
+            self.script_status.publish("InstructionsStart")
+        elif (commandstring == 'instructions 1 stop'
+                or commandstring == 'instructions 2 stop'):
+            # publish status
+            self.script_status.publish("InstructionsStop")
+        elif commandstring == 'reset blocks':
+            self.script_status.publish("ResetBlocks")
         else:
             # Sleep for the specified amount of time
             try:
                 sleep(float(commandstring))
             except ValueError:
-                rospy.logerr('Timing command is not a float: %s',timing)
+                rospy.logerr('Timing command is not a float: %s' % commandstring)
   
     def touchCallback(self, data):
         if data.touch_type == "Bumper":
@@ -195,3 +240,14 @@ class ScriptReader():
             rospy.loginfo("Head tap sensed")
         else:
             raise ValueError("Touch type not recognized: %s", data.touch_type)
+
+    def timerCallback(self, data):
+        if data.event == 'start':
+            self.timer_start = True
+            rospy.loginfo("Timer start signal")
+        elif data.event == 'stop':
+            self.timer_stop = True
+            rospy.loginfo("Timer stop signal")
+        elif data.event == 'reset':
+            self.timer_reset = True
+            rospy.loginfo("Timer reset signal")

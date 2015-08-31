@@ -32,7 +32,8 @@ class NVBModel():
         self.POINT = "point"
         self.GAZEANDPOINT = "lookandpoint"
 
-    def calculateNVBForRef(self, saliency, target_id, object_list, spoken_words):
+    def calculateNVBForRef(self, saliency, target_id, object_list, 
+        spoken_words, gazescores, pointscores):
         """
         Calculate the nonverbal behavior for the target object.
         
@@ -45,11 +46,13 @@ class NVBModel():
         target_id -- the ID number of the target object from object_list
         object_list -- a dictionary of objects with their IDs as the key
         spoken_words -- a list of words being spoken
+        gazescores -- a dict of gaze scores (pre-calculated for each object)
+        pointscores -- a dict of point scores (pre-calculated for each object)
 
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
 
-        if DEBUG: print "in NVB model: calculate NVB for ref"
+        if DEBUG: print "NVB model: calculate NVB for ref"
 
         # Check if saliency scores have been precomputed. If not,
         # calculate the saliency scores
@@ -68,12 +71,14 @@ class NVBModel():
         if DEBUG: print "verbal scores: " + str(verbal_scores)
 
         # Calculate gaze score with the robot looking at target object
-        gaze_scores = self.calculateGazeScores(target_id, object_list)
+        #gaze_scores = self.calculateGazeScores(target_id, object_list)
+        gaze_scores = gazescores
         for key, value in gaze_scores.iteritems():
             gaze_scores[key] = value * self.w_gaze
 
         # Calculate pointing score with the robot pointing to target object
-        point_scores = self.calculatePointScores(target_id, object_list)
+        #point_scores = self.calculatePointScores(target_id, object_list)
+        point_scores = pointscores
         for key, value in point_scores.iteritems():
             point_scores[key] = value * self.w_point
 
@@ -204,6 +209,10 @@ class NVBModel():
 
     def calculateGazeScores(self, target_id, object_list):
         """
+        NOTE: This is currently done on the Windows side by the Kinect code.
+        Do not use this function unless it is completed, in which case, remove
+        this note.
+
         Calculate the gaze score for each object in object_list.
 
         The gaze score represents how likely it is that the robot is looking
@@ -227,6 +236,10 @@ class NVBModel():
 
     def calculatePointScores(self, target_id, object_list):
         """
+        NOTE: This is currently done on the Windows side by the Kinect code.
+        Do not use this function unless it is completed, in which case, remove
+        this note.
+
         Calculate the pointing score for each object in object_list.
 
         The pointing score represents how likely it is that the robot is pointing

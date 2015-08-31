@@ -21,8 +21,9 @@ import re
 import argparse
 import subprocess
 import threading
+import random
 import numpy as np
-from time import sleep
+from time import sleep, time
 from lego import Lego
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
@@ -31,16 +32,27 @@ from nvbModel import NVBModel
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
 
-    def __init__(self, usernum, script_filename, robotIP, robotPort, cameraID=0):
+    def __init__(self, 
+                 usernum, 
+                 hri_script_filename, 
+                 validation_script_filename, 
+                 robotIP, 
+                 robotPort, 
+                 cameraID=0,
+                 nonverbalBehavior = True,
+                 interruption = True):
         """
         Initialize the controller for the HRI interaction.
 
         Arguments:
         usernum -- ID number for participant
-        script_filename -- string name of a script for the interaction
+        hri_script_filename -- string name of a script for the HRI interaction
+        validation_script_filename -- string name of a script for the validation interaction
         robotIP -- Nao's IP address
         robotPort -- Nao's port
         cameraID -- int ID for user view camera, defaults to 0
+        nonverbalBehavior -- bool for whether Nao should perform NVB, defaults to True
+        interruption -- bool for whether an interruption will happen, defaults to True
         """
 
         # Handle shutdown gracefully
@@ -59,8 +71,14 @@ class InteractionController():
                                         args=(usernum,))
         rosbagthread.start()
 
+        # User ID
+        self.userID = usernum
+
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
+
+        self.nvb = nonverbalBehavior
+        self.interrupt = interruption
 
         rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
@@ -71,8 +89,10 @@ class InteractionController():
         self.model = NVBModel()
 
         rospy.loginfo('Creating a ScriptReader object')
-        # Initialize script reader
-        self.scriptreader = ScriptReader(script_filename, robotIP, robotPort)
+        # Initialize script reader and set scripts
+        self.scriptreader = ScriptReader(robotIP, robotPort)
+        self.hriScript = hri_script_filename
+        self.validationScript = validation_script_filename
 
         # rospy.loginfo('Initializing hardcoded objects')
         # # FOR TESTING!
@@ -85,6 +105,7 @@ class InteractionController():
 
         # Precompute the saliency scores
         self.saliency_scores = self.precomputeSaliencyScores(0)
+
 
     def convertCoords(self, kinectCoords):
         '''
@@ -104,10 +125,12 @@ class InteractionController():
         """ Start recording rosbags of selected topics. """
         rosbagdir = '/home/kinect/catkin/src/nao_looking_and_pointing/src/rosbags/'
         self.rosbags = subprocess.Popen(['rosbag','record',
-            'objects_info',                     # record topic
-            'script_object_reference',          # record topic
-            'gazepoint_info',                   # record topic
-            'face_info',                        # record topic
+            'objects_info',                     # from Kinect
+            'script_object_reference',          # from script
+            'script_status',                    # from script
+            'gazepoint_info',                   # from Kinect
+            'face_info',                        # from Kinect
+            'timer_info',                       # from timer
             '-o',rosbagdir+'p'+str(usernum),   # file name of bag
             '-q'])                              # suppress output
 
@@ -262,11 +285,59 @@ class InteractionController():
         target_loc = self.objdict[target_id].loc
 
         # Calculate the correct nonverbal behavior to indicate the target
-        action_type = self.findNVBForRef(target_id, words_spoken)
+        if self.nvb:
+            action_type = self.findNVBForRef(target_id, words_spoken)
+        else:
+            action_type = 'none'
         rospy.loginfo("Proposed action: %s" % action_type)
 
         # Send action command to the robot
         self.nao.doGesture(action_type, target_loc)
+
+    def systemValidation(self):
+        """
+        Perform the system validation portion of the experiment.
+        """
+        # Figure out the "correct" NVB for each object and store this to 
+        # a file that will be used for data analysis. In the meantime, 
+        # generate a list of actions that include every permutation of
+        # look/point/lookandpoint/none, objects, and object words
+        action_list = []
+        f = open('results/p'+str(self.userID)+'_correctactionlist.txt','w')
+        for obj in self.objdict.values():
+            idnum = obj.idnum
+            assert len(obj.words) > 0
+            words = obj.words[0]
+            correct_act = self.findNVBForRef(idnum, words)
+            f.write(str(idnum) + ":" + correct_act + "\n")
+            for act in ['none','look','point','lookandpoint']:
+                action_list.append((act, obj.loc, words))
+        f.close()
+
+        # Randomize the list
+        random.shuffle(action_list)
+
+        # Add descriptive speech
+        self.scriptreader.readScript(self.validationScript)
+
+        # Have the robot act out the list
+        for action in action_list:
+            prompt = "Touch the " + str(action[2] + " block.")
+            # TODO SEnd ROS Message
+            self.actOutReference(prompt, action[0], action[1])
+
+    def actOutReference(self, prompt, action, location):
+        """
+        Helper function for systemValidation()
+
+        Do spatial reference with provided action and prompt to location.
+        """
+        starttime = time()
+        totaltime = starttime + 5 # total action should take 5 seconds
+        self.nao.speak(prompt, False)
+        self.nao.doGesture(action, location, False)
+        waittime = totaltime - time()
+        sleep(waittime) # wait for action to finish
 
     def findNVBForRef(self, target_id, words_spoken):
         """
@@ -291,44 +362,104 @@ class InteractionController():
         
         # Call NVBModel function that calculates saliency
         nvb = self.model.calculateNVBForRef(
-            self.saliency_scores, target_id, self.objdict, words_list)
+            self.saliency_scores, target_id, self.objdict, words_list
+            self.gazescores, self.pointscores)
         return nvb
+
+    def startup(self):
+        """ Perform some functions to start the experiment. """
+        self.nao.stand()
+        sleep(5) # wait for standing behavior to finish
+        self.nao.startIdle()
+
+        # Assign words to the objects, which should be in objdict by now
+        assert len(self.objdict) == 6
+        self.objdict[0].words = ['small red']
+        self.objdict[1].words = ['large orange']
+        self.objdict[2].words = ['small yellow']
+        self.objdict[3].words = ['large lime']
+        self.objdict[4].words = ['small green']
+        self.objdict[5].words = ['large blue']
 
     def shutdown(self):
         """ Shut down cleanly. """
         rospy.logwarn("Shutting down...")
 
+        # Shut down robot cleanly
+        self.nao.robotShutdown()
+
         # End rosbag recording (from answers.)
+        rospy.loginfo('Ending rosbag recording')
         ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" %
             self.rosbags.pid, shell=True, stdout=subprocess.PIPE)
         ps_output = ps_command.stdout.read()
         retcode = ps_command.wait()
         assert retcode == 0, "ps command expected 0, returned %d" % retcode
         for pid_str in ps_output.split("\n")[:-1]:
-            os.kill(int(pid_str), signal.SIGINT)
-        self.rosbags.terminate()
+            result = os.kill(int(pid_str), signal.SIGKILL)
+            rospy.loginfo('Kill rosbag child nodes returned: %s' % str(result))
+        term_return = self.rosbags.terminate()
+        rospy.loginfo('Terminating rosbag parent process returned: %s' 
+            % str(term_return))
 
     def main(self):
-        self.nao.stand()
-        sleep(5) # wait for standing behavior to finish
-        self.scriptreader.readScript()
+        self.startup()
+
+        # Play system validation portion of experiment.
+        self.systemValidation()
+
+
+        # Play HRI script
+        self.nao.startIdle()
+        self.scriptreader.readScript(self.hriScript, self.interrupt)
+
+        self.shutdown()
 
 
 if __name__ == "__main__":
+    # Remove extraneous ROS arguments
     sys.argv = rospy.myargv(argv=sys.argv)
 
     parser = argparse.ArgumentParser(description="HRI interaction controller")
-    parser.add_argument('scriptname',
-        help='the file name of the script for the interaction',
-        default='/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt')
     parser.add_argument('usernum',
         help='ID number of the participant (should be unique to participant)')
+    parser.add_argument('hri_scriptname',
+        help='the file name of the script for the HRI portion',
+        default='/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt')
+    parser.add_argument('validation_scriptname',
+        help='the file name of the script for the validation portion')
+    parser.add_argument('robotIP',
+        help="the robot's IP address",
+        default="192.168.1.2")
+    parser.add_argument('robotPort',
+        help="the robot's port number",
+        default=9559,
+        type=int)
+    paser.add_argument('cameraID',
+        help='ID number of the user view camera',
+        default=0,
+        type=int)
+    parser.add_argument('nvb_on',
+        help='boolean indicating whether robot should perform nonverbal behavior',
+        default=True,
+        type=bool)
+    parser.add_argument('interruption_on',
+        help='boolean indicating whether an interruption will occur',
+        default=True,
+        type=bool)
 
     args = parser.parse_args()
-    script = args.scriptname
+    hri_script = args.hri_scriptname
     usernum = args.usernum
+    val_script = args.validation_scriptname
+    ip = args.robotIP
+    port = args.robotPort
+    camID = args.cameraID
+    nvb = args.nvb_on
+    interrupt = args.interruption_on
 
-    ic = InteractionController(usernum, script)
+    ic = InteractionController(usernum, hri_script, val_script, 
+        ip, port, camID, nvb, interrupt)
     ic.main()
 
     sys.exit(0)

@@ -97,17 +97,20 @@ class NaoGestures():
         self.exit = threading.Event()
 
 
-    def speak(self, text):
+    def speak(self, text, blocking=False):
         """
         Command the robot to read the provided text out loud.
 
         Arguments:
         text -- the text for the robot to read
+        blocking -- should this function block (defaults to False)
 
         Returns: none (but causes robot action)
         """
-
-        self.ttsProxy.say(text)
+        if blocking:
+            self.ttsProxy.say(text)
+        else:
+            self.ttsProxy.post.say(text)
 
     def startIdle(self):
         self.idle.set()
@@ -120,170 +123,87 @@ class NaoGestures():
         """
         Perform small life-like idle behaviors by shifting body and head.
         """
-        self.idle.wait() # Wait for idle flag to be set
-
+        #self.idle.wait() # Wait for idle flag to be set
 
         # Send robot to Stand posture
-        self.motionProxy.setStiffnesses("Body", 1.0)
         self.postureProxy.goToPosture("Stand",0.5)
-
-        # Enable whole body balancer
-        self.motionProxy.wbEnable(True)
-
-        # Legs are constrained fixed
-        self.motionProxy.wbFootState("Fixed", "Legs")
-
-        # Constraint balance motion
-        self.motionProxy.wbEnableBalanceConstraint(True, "Legs")
-
-        useSensorValues = False
-        frame = motion.FRAME_ROBOT
-        effectorList = ["Torso","LArm","RArm"]
-
-        dy_max = 0.04
-        dz_max = 0.04
-
-        startTf = self.motionProxy.getTransform("Torso", frame, useSensorValues)
-        startLArmTf = self.motionProxy.getTransform("LArm", frame, useSensorValues)
-        startRArmTf = self.motionProxy.getTransform("RArm", frame, useSensorValues)
-
-        hipside = 0
 
         while True:
             if self.exit.isSet():
-                print threading.currentThread().getName(), " exiting"
+                print threading.currentThread().getName(), "exiting"
                 return
 
             # Wait for idle flag to be set
             if not self.idle.isSet():
                 if self.exit.isSet():
+                    print threading.currentThread().getName(), "exiting"
                     return
+                if self.motionProxy.getBreathEnabled('Body'):
+                    self.motionProxy.setBreathEnabled('Body',False)
                 time.sleep(1.0)
                 continue
 
-            print str(self.exit.isSet())
-            # Pick a random distance for hip sway
-            dy = random.uniform(0,dy_max)
-            dz = random.uniform(0,dy) # looks weird if robot squats more than it shifts
-
-            # Alternate sides of hip sway
-            if hipside == 0:
-                targetTf = almath.Transform(startTf)
-                targetTf.r2_c4 += dy
-                targetTf.r3_c4 -= dz
-                hipside = 1
-            else:
-                targetTf = almath.Transform(startTf)
-                targetTf.r2_c4 -= dy
-                targetTf.r3_c4 -= dz
-                hipside = 0
-
-            # Hip sways from side to middle
-            pathTorso = [list(targetTf.toVector()), startTf]
-
-            # Arm sway
-            if hipside == 1:
-                lArmTargetTf = almath.Transform(startLArmTf)
-                lArmTargetTf.r3_c4 -= dz
-                rArmTargetTf = almath.Transform(startRArmTf)
-                rArmTargetTf.r3_c4 -= dz
-            else:
-                lArmTargetTf = almath.Transform(startLArmTf)
-                lArmTargetTf.r3_c4 += dz
-                rArmTargetTf = almath.Transform(startRArmTf)
-                rArmTargetTf.r3_c4 += dz
-
-            pathLArm = [list(lArmTargetTf.toVector()),
-                        startLArmTf]
-            pathRArm = [list(rArmTargetTf.toVector()),
-                        startRArmTf]
-
-            axisMaskList = [almath.AXIS_MASK_ALL, # for "Torso"
-                            almath.AXIS_MASK_VEL, # for "LArm"
-                            almath.AXIS_MASK_VEL] # for "RArm"
-
-            timescoef = 1.5 # time between each shift
-            nTimeSteps = 2 # number of discrete points in the idle motion
-            movementTimes = [timescoef*(i+1) for i in range(nTimeSteps)]
-            timesList = [movementTimes] * 3
-
-            pathList = [pathTorso, pathLArm, pathRArm]
-
-            self.motionProxy.post.transformInterpolations(
-                effectorList, frame, pathList, axisMaskList, timesList)
-
-            time.sleep(timescoef+0.5) # add a half-second pause
-
-            # if not self.gesturing:
-            #     # Use all idle behaviors, including arms
-            #     self.motionProxy.post.transformInterpolations(
-            #         effectorList, frame, pathList, axisMaskList, timesList)
-            # else:
-            #     # Avoid using arms in idle behaviors
-            #     self.motionProxy.post.transformInterpolations(
-            #         effectorList[0], frame, pathList[0], axisMaskList[0], timesList[0])
-
-        # Deactivate body
-        self.motionProxy.wbEnable(False)
-        self.postureProxy.goToPosture("Stand", 0.3)
-        return
+            # Turn on breathing
+            self.motionProxy.setBreathEnabled('Body',True)
 
     def stand(self):
         """ Stand up. """
+        self.stopIdle()
         self.postureProxy.goToPosture('Stand',0.5)
 
     def sitAndRelax(self):
         """ Go to sitting position and shut off motor stiffness. """
+        self.stopIdle()
         self.postureProxy.goToPosture('Crouch',0.5)
         self.motionProxy.setStiffnesses('Body',0)
 
-    def doGesture(self, gestureType, torsoObjectVector):
+    def doGesture(self, gestureType, torsoObjectVector, blocking=True):
         self.gesturing = True
-        self.postureProxy.goToPosture("Stand", 0.5)
         if gestureType == "none":
             pass
         elif gestureType == "look":
-            self.look(torsoObjectVector)
+            self.look(torsoObjectVector, blocking)
         elif gestureType == "point":
             arm = "LArm" if torsoObjectVector[1] >= 0 else "RArm"
-            self.point(arm, torsoObjectVector)
+            self.point(arm, torsoObjectVector, blocking)
         elif gestureType == "lookandpoint":
             arm = "LArm" if torsoObjectVector[1] >= 0 else "RArm"
-            self.lookAndPoint(arm, torsoObjectVector)
+            self.lookAndPoint(arm, torsoObjectVector, blocking)
         else:
             print "Error: gestureType must be 'none', 'look', 'point', or 'lookandpoint'"
             return
-        self.postureProxy.goToPosture("Stand", 0.5)
         self.gesturing = False
 
-    def look(self, torsoObjectVector):
+    def look(self, torsoObjectVector, blocking=True):
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
         sleepTime = 2 # seconds
-        self.moveHead(pitch, yaw, sleepTime) # Move head to look
-        self.moveHead(0, 0, sleepTime) # Move head back
+        self.moveHead(pitch, yaw, blocking) # Move head to look
+        time.sleep(sleepTime)
+        self.moveHead(0, 0, blocking) # Move head back
 
-    def point(self, pointingArm, torsoObjectVector):
+    def point(self, pointingArm, torsoObjectVector, blocking=True):
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
         IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
         sleepTime = 3 # seconds
-        self.moveArm(pointingArm, IKTarget, sleepTime) # Move arm to point
-        self.moveArm(pointingArm, initArmPosition, sleepTime) # Move arm back
+        self.moveArm(pointingArm, IKTarget, blocking) # Move arm to point
+        time.sleep(sleepTime)
+        self.moveArm(pointingArm, initArmPosition, blocking) # Move arm back
 
-    def lookAndPoint(self, pointingArm, torsoObjectVector):
+    def lookAndPoint(self, pointingArm, torsoObjectVector, blocking=True):
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
         IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
         sleepTime = 0 # set individual sleep times to 0
 
         # Move arm and head to gesture
-        self.moveArm(pointingArm, IKTarget, sleepTime)
-        self.moveHead(pitch, yaw, sleepTime)
+        self.moveArm(pointingArm, IKTarget, blocking)
+        self.moveHead(pitch, yaw, blocking)
         time.sleep(3)
 
         # Move arm and head back
-        self.moveArm(pointingArm, initArmPosition, sleepTime)
-        self.moveHead(0, 0, sleepTime)
-        time.sleep(3)
+        self.moveArm(pointingArm, initArmPosition, blocking)
+        self.moveHead(0, 0, blocking)
+        #time.sleep(3)
 
     def getPitchAndYaw(self, torsoObjectVector):
         # Get vector from head to object
@@ -316,11 +236,14 @@ class NaoGestures():
         magnitudeB = numpy.linalg.norm(b) # magnitude of normal
         return math.acos(dotProduct / (magnitudeA * magnitudeB))
 
-    def moveHead(self, pitch, yaw, sleepTime):
+    def moveHead(self, pitch, yaw, blocking=True):
+        self.stopIdle()
         head = ["HeadPitch", "HeadYaw"]
         fractionMaxSpeed = 0.1
-        self.motionProxy.setAngles(head, [pitch, yaw], fractionMaxSpeed)
-        time.sleep(sleepTime)
+        if blocking:
+            self.motionProxy.setAngles(head, [pitch, yaw], fractionMaxSpeed)
+        else:
+            self.motionProxy.post.setAngles(head, [pitch, yaw], fractionMaxSpeed)
 
     def setArmVars(self, pointingArm):
         shoulderOffset = None
@@ -352,10 +275,13 @@ class NaoGestures():
         IKTarget = list(numpy.append(IKTarget, [0.0, 0.0, 0.0]))
         return IKTarget
 
-    def moveArm(self, pointingArm, IKTarget, sleepTime):
+    def moveArm(self, pointingArm, IKTarget, blocking=True):
+        self.stopIdle()
         fractionMaxSpeed = 0.9
-        self.motionProxy.setPosition(pointingArm, self.frame, IKTarget, fractionMaxSpeed, self.axisMask)
-        time.sleep(sleepTime)
+        if blocking:
+            self.motionProxy.setPosition(pointingArm, self.frame, IKTarget, fractionMaxSpeed, self.axisMask)
+        else:
+            self.motionProxy.post.setPosition(pointingArm, self.frame, IKTarget, fractionMaxSpeed, self.axisMask)
 
     def robotShutdown(self):
         """ Sends robot to sit position and turns off stiffness. """
@@ -372,8 +298,6 @@ class NaoGestures():
         self.doGesture("point", torsoObjectVector)
         self.doGesture("lookandpoint", torsoObjectVector)
 
-class PausableThread(threading.Thread):
-    """ Thread class that can be paused. """
 
 if __name__ == '__main__':
     naoGestures = NaoGestures()
