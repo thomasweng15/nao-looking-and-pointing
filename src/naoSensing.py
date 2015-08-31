@@ -5,6 +5,7 @@ from naoqi import ALProxy, ALBroker, ALModule
 from nao_looking_and_pointing.msg import Touch
 from optparse import OptionParser
 import sys
+import atexit
 
 # Global variable to store the module instance
 SensingModule = None
@@ -53,6 +54,7 @@ class NaoSensing(ALModule):
 
 def main():
 	""" Connect to broker and start sensing module. """
+	global broker
 
 	print("Connecting to Nao broker")
 	# (per doc.aldebaran.com/1-14/dev/python/reacting_to_events.html)
@@ -85,8 +87,13 @@ def main():
 
 	rospy.spin()
 
+def shutdown():
+	global broker
+	
+	print("naoSensing module exiting")
 	broker.shutdown()
 	sys.exit(0)
 
 if __name__ == '__main__':
+	atexit.register(shutdown)
 	main()

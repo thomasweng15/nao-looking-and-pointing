@@ -87,14 +87,20 @@ class NaoGestures():
 
         self.gesturing = False # is the robot executing the doGesture function?
 
+        # Set an exit flag for the thread
+        self.exit = threading.Event()
+
         # Start a thread for idling
         self.idleThread = threading.Thread(name='idle_thread',
                                            target=self.doIdleBehaviors)
         self.idle = threading.Event()
         self.idleThread.start()
 
-        # Set an exit flag for the thread
-        self.exit = threading.Event()
+        # Start a thread for head scanning
+        self.headscanThread = threading.Thread(name='headscan_thread',
+                                                target=self.doHeadScan)
+        self.headscan = threading.Event()
+        self.headscanThread.start()
 
 
     def speak(self, text, blocking=False):
@@ -118,6 +124,11 @@ class NaoGestures():
     def stopIdle(self):
         self.idle.clear()
 
+    def startHeadScan(self):
+        self.headscan.set()
+
+    def stopHeadScan(self):
+        self.headscan.clear()
 
     def doIdleBehaviors(self):
         """
@@ -145,6 +156,40 @@ class NaoGestures():
 
             # Turn on breathing
             self.motionProxy.setBreathEnabled('Body',True)
+
+    def doHeadScan(self):
+        """ Look down and slowly scan with the head left and right. """
+
+        joints = ["HeadYaw", "HeadPitch"]
+        yaw = 0.3
+        pitch = 0.25
+        speed = 0.05
+
+        side = 0
+        while True:
+            if self.exit.isSet():
+                print threading.currentThread().getName(), "exiting"
+                return
+
+            if not self.headscan.isSet():
+                if self.exit.isSet():
+                    print threading.currentThread().getName(), "exiting"
+                    return
+                time.sleep(1.0)
+                continue
+
+            # Turn on head scan
+            angles = [yaw, pitch]
+            if side == 0:
+                side = 1
+                angles[0] = yaw * -1
+            else:
+                side = 0
+            self.motionProxy.setAngles(joints, angles, speed)
+            time.sleep(3.0)
+
+
+        # Add a random blink in here
 
     def stand(self):
         """ Stand up. """
@@ -176,7 +221,7 @@ class NaoGestures():
 
     def look(self, torsoObjectVector, blocking=True):
         pitch, yaw = self.getPitchAndYaw(torsoObjectVector)
-        sleepTime = 2 # seconds
+        sleepTime = 1 # seconds
         self.moveHead(pitch, yaw, blocking) # Move head to look
         time.sleep(sleepTime)
         self.moveHead(0, 0, blocking) # Move head back
@@ -184,7 +229,7 @@ class NaoGestures():
     def point(self, pointingArm, torsoObjectVector, blocking=True):
         shoulderOffset, initArmPosition = self.setArmVars(pointingArm)
         IKTarget = self.getIKTarget(torsoObjectVector, shoulderOffset)
-        sleepTime = 3 # seconds
+        sleepTime = 2 # seconds
         self.moveArm(pointingArm, IKTarget, blocking) # Move arm to point
         time.sleep(sleepTime)
         self.moveArm(pointingArm, initArmPosition, blocking) # Move arm back

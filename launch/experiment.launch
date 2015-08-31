@@ -2,14 +2,15 @@
 	<!-- Arguments passed in from command line -->
 	<arg name="ip" default="192.168.1.2" />
 	<arg name="port" default="9559" />
-	<arg name="hriscript" default="/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt" />
-	<arg name="usernum" default="0"/>
-	<arg name="nvb" default="True" />
-	<arg name="valscript" default="/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt" />
+	<arg name="hriscript" default="script_hri_interaction.txt" />
+	<arg name="usernum" />
+	<arg name="nvb" />
+	<arg name="interrupt" />
+	<arg name="valscript" default="script_system_validation.txt" />
 	<arg name="usercam" default="0" />
 
 	<!-- Start Windows ROSbridge -->
-	<node pkg="rosbridge_server" name="rosbridge_websocket" type="rosbridge_websocket"/>        
+	<node pkg="rosbridge_server" name="rosbridge_websocket" type="rosbridge_websocket" required="true" />        
 	<node pkg="kinect2_pointing_recognition" name="kinect_parser" type="kinect_parser.py"/>
 
 	<!-- Start watching human behavior -->
@@ -22,5 +23,5 @@
 	<node name="timer" pkg="nao_looking_and_pointing" type="timer.py" />
 
 	<!-- Start the node that runs the experiment -->
-	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="$(arg usernum) $(arg hriscript) $(arg valscript) $(arg ip)" $(arg port) $(arg usercam) $(arg nvb) required="true" output="screen"/>
+	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="$(arg usernum) $(arg hriscript) $(arg valscript) $(arg ip) $(arg port) $(arg usercam) $(arg nvb) $(arg interrupt)" required="true" output="screen"/>
 </launch>

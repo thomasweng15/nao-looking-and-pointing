@@ -26,7 +26,9 @@ def generateSaliencyMap(rawimgfile):
     """
     optparser = saliency.get_optparser()
     opts, args = optparser.parse_args([''])
-    outimgfile = 'salmap_' + rawimgfile
+    fnamesplit = rawimgfile.split('.')
+    assert len(fnamesplit) == 2
+    outimgfile = fnamesplit[0] + '_salmap.' + fnamesplit[1]
 
     # This returns a numpy array of arrays, where each row
     # represents a row of pixels in the image.

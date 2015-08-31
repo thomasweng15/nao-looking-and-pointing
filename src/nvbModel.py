@@ -46,8 +46,8 @@ class NVBModel():
         target_id -- the ID number of the target object from object_list
         object_list -- a dictionary of objects with their IDs as the key
         spoken_words -- a list of words being spoken
-        gazescores -- a dict of gaze scores (pre-calculated for each object)
-        pointscores -- a dict of point scores (pre-calculated for each object)
+        gazescores -- a list of gaze scores (pre-calculated for each object)
+        pointscores -- a list of point scores (pre-calculated for each object)
 
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
@@ -73,14 +73,12 @@ class NVBModel():
         # Calculate gaze score with the robot looking at target object
         #gaze_scores = self.calculateGazeScores(target_id, object_list)
         gaze_scores = gazescores
-        for key, value in gaze_scores.iteritems():
-            gaze_scores[key] = value * self.w_gaze
+        gaze_scores = [val * self.w_gaze for val in gaze_scores]
 
         # Calculate pointing score with the robot pointing to target object
         #point_scores = self.calculatePointScores(target_id, object_list)
         point_scores = pointscores
-        for key, value in point_scores.iteritems():
-            point_scores[key] = value * self.w_point
+        point_scores = [val * self.w_point for val in point_scores]
 
         # Calculate likelihood scores for all objects given current scene and different combinations
         # of available nonverbal behaviors (verbal only, verbal+gaze, verbal+gesture, verbal+gaze+gesture)
@@ -88,6 +86,9 @@ class NVBModel():
         score_verbal_gaze = dict()
         score_verbal_point = dict()
         score_verbal_gaze_point = dict()
+
+        if DEBUG:
+            print "gaze scores: " + str(gaze_scores)
         
         for idnum in object_list:
             score_verbal[idnum] = saliency_scores[idnum] + verbal_scores[idnum]

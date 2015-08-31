@@ -22,12 +22,15 @@ import argparse
 import subprocess
 import threading
 import random
+import ast
 import numpy as np
 from time import sleep, time
 from lego import Lego
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
 from nvbModel import NVBModel
+
+dirpath = '/home/kinect/catkin/src/nao_looking_and_pointing/src/'
 
 class InteractionController():
     """ High-level class that runs the HRI interaction. """
@@ -65,7 +68,8 @@ class InteractionController():
         self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
         self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
         self.gazepoint_info_listener = rospy.Subscriber('/gazepoint_info', GazePointInfo, self.gazepointInfoCallback)
-        
+        self.script_status_listener = rospy.Subscriber('/script_status', String, self.scriptStatusCallback)
+
         # Start rosbags in a separate thread
         rosbagthread = threading.Thread(target=self.recordRosbags, 
                                         args=(usernum,))
@@ -77,7 +81,9 @@ class InteractionController():
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
 
+        assert isinstance(nonverbalBehavior,bool)
         self.nvb = nonverbalBehavior
+        assert isinstance(interruption,bool)
         self.interrupt = interruption
 
         rospy.loginfo('Creating a NaoGestures object')
@@ -88,23 +94,26 @@ class InteractionController():
         # NVB model
         self.model = NVBModel()
 
-        rospy.loginfo('Creating a ScriptReader object')
+        rospy.loginfo('Creating a ScriptReader object \
+            (interruption: %s)' % str(self.interrupt))
         # Initialize script reader and set scripts
-        self.scriptreader = ScriptReader(robotIP, robotPort)
-        self.hriScript = hri_script_filename
-        self.validationScript = validation_script_filename
+        self.scriptreader = ScriptReader(robotIP, robotPort, self.interrupt)
+        self.hriScript = dirpath + hri_script_filename
+        self.validationScript = dirpath + validation_script_filename
 
         # rospy.loginfo('Initializing hardcoded objects')
         # # FOR TESTING!
         # self.initializeObjects()
 
         # Precompute the gaze and point scores
+        self.nao.startHeadScan() # for expressiveness
         self.gazescores = dict()
         self.pointscores = dict()
         self.waitForGazePointScores()
 
         # Precompute the saliency scores
         self.saliency_scores = self.precomputeSaliencyScores(0)
+        self.nao.stopHeadScan() # for expressiveness
 
 
     def convertCoords(self, kinectCoords):
@@ -130,8 +139,9 @@ class InteractionController():
             'script_status',                    # from script
             'gazepoint_info',                   # from Kinect
             'face_info',                        # from Kinect
+            'human_behavior',                   # from Kinect
             'timer_info',                       # from timer
-            '-o',rosbagdir+'p'+str(usernum),   # file name of bag
+            '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
 
     def initializeObjects(self):
@@ -175,7 +185,6 @@ class InteractionController():
         a list of scores as value, where the index of the list is the 
         object ID associated with that score.
         """
-
         if data.type == 'gaze':
             self.gazescores[data.target_id] = data.scores
         elif data.type == 'point':
@@ -205,7 +214,8 @@ class InteractionController():
 
         # Grab user view snapshot from camera for saliency detection
         s,self.user_view_img = cam.read()
-        user_view_fname = 'userview.jpg'
+        user_view_fname = dirpath + 'results/p' + str(self.userID) \
+            + '_userview.jpg'
         if not s:
             raise IOError("Could not take camera image!")
         else:
@@ -219,7 +229,7 @@ class InteractionController():
         saliency_scores = self.model.calculateSaliencyScores(
             user_view_fname, self.objdict)
 
-        rospy.loginfo('Saved participant view to ./' + user_view_fname)
+        rospy.loginfo('Saved participant view to ' + user_view_fname)
 
         return saliency_scores
 
@@ -285,14 +295,25 @@ class InteractionController():
         target_loc = self.objdict[target_id].loc
 
         # Calculate the correct nonverbal behavior to indicate the target
-        if self.nvb:
-            action_type = self.findNVBForRef(target_id, words_spoken)
-        else:
+        action_type = self.findNVBForRef(target_id, words_spoken)
+        if not self.nvb:
             action_type = 'none'
         rospy.loginfo("Proposed action: %s" % action_type)
 
         # Send action command to the robot
         self.nao.doGesture(action_type, target_loc)
+
+    def scriptStatusCallback(self, msg):
+        """ Listen for script status. """
+        status = msg.data
+        print "script callback status: " + status
+
+        # Turn on idle behaviors when instructions or interruption
+        # are over, in case NVB during instructions turned them off
+        if status == "InstructionsStop":
+            self.nao.startIdle()
+        elif status == "InterruptionStop":
+            self.nao.startIdle()
 
     def systemValidation(self):
         """
@@ -303,7 +324,10 @@ class InteractionController():
         # generate a list of actions that include every permutation of
         # look/point/lookandpoint/none, objects, and object words
         action_list = []
-        f = open('results/p'+str(self.userID)+'_correctactionlist.txt','w')
+        outfile = dirpath \
+                  + 'results/p'+str(self.userID) \
+                  + '_correctactionlist.txt'
+        f = open(outfile,'w')
         for obj in self.objdict.values():
             idnum = obj.idnum
             assert len(obj.words) > 0
@@ -362,8 +386,8 @@ class InteractionController():
         
         # Call NVBModel function that calculates saliency
         nvb = self.model.calculateNVBForRef(
-            self.saliency_scores, target_id, self.objdict, words_list
-            self.gazescores, self.pointscores)
+            self.saliency_scores, target_id, self.objdict, words_list,
+            self.gazescores[target_id], self.pointscores[target_id])
         return nvb
 
     def startup(self):
@@ -406,12 +430,11 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        self.systemValidation()
-
+        #self.systemValidation()
 
         # Play HRI script
         self.nao.startIdle()
-        self.scriptreader.readScript(self.hriScript, self.interrupt)
+        self.scriptreader.readScript(self.hriScript)
 
         self.shutdown()
 
@@ -422,10 +445,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="HRI interaction controller")
     parser.add_argument('usernum',
-        help='ID number of the participant (should be unique to participant)')
+        help='ID number of the participant (should be unique to participant)',
+        type=int)
     parser.add_argument('hri_scriptname',
         help='the file name of the script for the HRI portion',
-        default='/home/kinect/catkin/src/nao_looking_and_pointing/src/testscript.txt')
+        default='testscript.txt')
     parser.add_argument('validation_scriptname',
         help='the file name of the script for the validation portion')
     parser.add_argument('robotIP',
@@ -435,18 +459,16 @@ if __name__ == "__main__":
         help="the robot's port number",
         default=9559,
         type=int)
-    paser.add_argument('cameraID',
+    parser.add_argument('cameraID',
         help='ID number of the user view camera',
         default=0,
         type=int)
     parser.add_argument('nvb_on',
         help='boolean indicating whether robot should perform nonverbal behavior',
-        default=True,
-        type=bool)
+        type=ast.literal_eval)
     parser.add_argument('interruption_on',
         help='boolean indicating whether an interruption will occur',
-        default=True,
-        type=bool)
+        type=ast.literal_eval)
 
     args = parser.parse_args()
     hri_script = args.hri_scriptname
