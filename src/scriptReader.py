@@ -17,15 +17,13 @@ from naoGestures import NaoGestures
 
 class ScriptReader():
 
-    def __init__(self, robotIP = None, 
-                       robotPort = None,
+    def __init__(self, robot = None,
                        interruption = True):
         """
         Create the script reader.
 
         Arguments:
-        robotIP -- Nao's IP address, defaults to None
-        robotPort -- Nao's port, defaults to None
+        robot -- a NaoGestures object
         interruption -- bool, should reading stop for an interruption?, defaults True
         """
 
@@ -44,7 +42,7 @@ class ScriptReader():
             'timer_info',Timer,self.timerCallback)
 
         # Initialize robot controller
-        self.nao = NaoGestures(robotIP, robotPort)
+        self.nao = robot
 
         # Interruption signal
         self.interrupt = interruption

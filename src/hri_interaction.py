@@ -59,7 +59,7 @@ class InteractionController():
         """
 
         # Handle shutdown gracefully
-        atexit.register(self.shutdown)
+        #atexit.register(self.shutdown)
 
         rospy.init_node('interaction_controller', log_level=rospy.INFO)
         rospy.loginfo('Initializing interaction controller')
@@ -100,7 +100,7 @@ class InteractionController():
         rospy.loginfo('Creating a ScriptReader object (interruption: %s)' 
             % str(self.interrupt))
         # Initialize script reader and set scripts
-        self.scriptreader = ScriptReader(robotIP, robotPort, self.interrupt)
+        self.scriptreader = ScriptReader(self.nao, self.interrupt)
         self.hriScript = dirpath + hri_script_filename
         self.validationScript = dirpath + validation_script_filename
 
@@ -436,7 +436,7 @@ class InteractionController():
             self.rosbags.pid, shell=True, stdout=subprocess.PIPE)
         ps_output = ps_command.stdout.read()
         retcode = ps_command.wait()
-        assert retcode == 0, "ps command expected 0, returned %d" % retcode
+        assert retcode is not None, "ps command expected integer, returned %d" % retcode
         for pid_str in ps_output.split("\n")[:-1]:
             result = os.kill(int(pid_str), signal.SIGINT)
             rospy.loginfo('Kill rosbag child node (%s) returned: %s' 
