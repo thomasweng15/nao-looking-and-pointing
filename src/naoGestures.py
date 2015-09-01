@@ -332,7 +332,13 @@ class NaoGestures():
         """ Sends robot to sit position and turns off stiffness. """
 
         print("Sending robot to safe position for shutdown.")
-        self.exit.set() # turn off idle thread
+
+        # turn off idle and headscan threads
+        self.exit.set() 
+        self.idleThread.join()
+        self.headscanThread.join()
+        print("Idle and headscan threads successfully closed.")
+
         self.motionProxy.rest()
 
     def testMovements(self):

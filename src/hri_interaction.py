@@ -9,7 +9,7 @@ This module runs the HRI construction interaction.
 # ROS imports
 import rospy
 from kinect2_pointing_recognition.msg import ObjectsInfo, GazePointInfo
-from nao_looking_and_pointing.msg import ScriptObjectRef
+from nao_looking_and_pointing.msg import ScriptObjectRef, RobotBehavior
 from std_msgs.msg import String
 # --------------------------------
 import sys
@@ -70,6 +70,9 @@ class InteractionController():
         self.gazepoint_info_listener = rospy.Subscriber('/gazepoint_info', GazePointInfo, self.gazepointInfoCallback)
         self.script_status_listener = rospy.Subscriber('/script_status', String, self.scriptStatusCallback)
 
+        # Create relevant publishers
+        self.robot_behavior_pub = rospy.Publisher('/robot_behavior', RobotBehavior)
+
         # Start rosbags in a separate thread
         rosbagthread = threading.Thread(target=self.recordRosbags, 
                                         args=(usernum,))
@@ -94,8 +97,8 @@ class InteractionController():
         # NVB model
         self.model = NVBModel()
 
-        rospy.loginfo('Creating a ScriptReader object \
-            (interruption: %s)' % str(self.interrupt))
+        rospy.loginfo('Creating a ScriptReader object (interruption: %s)' 
+            % str(self.interrupt))
         # Initialize script reader and set scripts
         self.scriptreader = ScriptReader(robotIP, robotPort, self.interrupt)
         self.hriScript = dirpath + hri_script_filename
@@ -109,10 +112,10 @@ class InteractionController():
         self.nao.startHeadScan() # for expressiveness
         self.gazescores = dict()
         self.pointscores = dict()
-        self.waitForGazePointScores()
+        #self.waitForGazePointScores()
 
         # Precompute the saliency scores
-        self.saliency_scores = self.precomputeSaliencyScores(0)
+        #self.saliency_scores = self.precomputeSaliencyScores(0)
         self.nao.stopHeadScan() # for expressiveness
 
 
@@ -140,6 +143,7 @@ class InteractionController():
             'gazepoint_info',                   # from Kinect
             'face_info',                        # from Kinect
             'human_behavior',                   # from Kinect
+            'robot_behavior',                   # from program
             'timer_info',                       # from timer
             '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
@@ -300,6 +304,10 @@ class InteractionController():
             action_type = 'none'
         rospy.loginfo("Proposed action: %s" % action_type)
 
+        # Publish message about robot's behavior
+        self.robot_behavior_pub.publish(action=action_type, 
+                                        object_id=target_id)
+
         # Send action command to the robot
         self.nao.doGesture(action_type, target_loc)
 
@@ -335,7 +343,7 @@ class InteractionController():
             correct_act = self.findNVBForRef(idnum, words)
             f.write(str(idnum) + ":" + correct_act + "\n")
             for act in ['none','look','point','lookandpoint']:
-                action_list.append((act, obj.loc, words))
+                action_list.append((act, idnum, words))
         f.close()
 
         # Randomize the list
@@ -347,10 +355,12 @@ class InteractionController():
         # Have the robot act out the list
         for action in action_list:
             prompt = "Touch the " + str(action[2] + " block.")
-            # TODO SEnd ROS Message
-            self.actOutReference(prompt, action[0], action[1])
+            target = action[1]
+            nvb_action = action[0]
+            
+            self.actOutReference(prompt, nvb_action, target)
 
-    def actOutReference(self, prompt, action, location):
+    def actOutReference(self, prompt, action, target):
         """
         Helper function for systemValidation()
 
@@ -358,8 +368,16 @@ class InteractionController():
         """
         starttime = time()
         totaltime = starttime + 5 # total action should take 5 seconds
+
+        location = self.objdict[target].loc
+
+        # Publish message about robot's behavior
+        self.robot_behavior_pub.publish(action=action, 
+                                        object_id=target)
+
         self.nao.speak(prompt, False)
         self.nao.doGesture(action, location, False)
+
         waittime = totaltime - time()
         sleep(waittime) # wait for action to finish
 
@@ -420,8 +438,9 @@ class InteractionController():
         retcode = ps_command.wait()
         assert retcode == 0, "ps command expected 0, returned %d" % retcode
         for pid_str in ps_output.split("\n")[:-1]:
-            result = os.kill(int(pid_str), signal.SIGKILL)
-            rospy.loginfo('Kill rosbag child nodes returned: %s' % str(result))
+            result = os.kill(int(pid_str), signal.SIGINT)
+            rospy.loginfo('Kill rosbag child node (%s) returned: %s' 
+                % (pid_str, str(result)))
         term_return = self.rosbags.terminate()
         rospy.loginfo('Terminating rosbag parent process returned: %s' 
             % str(term_return))
@@ -433,8 +452,8 @@ class InteractionController():
         #self.systemValidation()
 
         # Play HRI script
-        self.nao.startIdle()
-        self.scriptreader.readScript(self.hriScript)
+        #self.nao.startIdle()
+        #self.scriptreader.readScript(self.hriScript)
 
         self.shutdown()
 
@@ -484,4 +503,9 @@ if __name__ == "__main__":
         ip, port, camID, nvb, interrupt)
     ic.main()
 
+    print "nao's thread statuses:"
+    print(ic.nao.idleThread.is_alive())
+    print(ic.nao.headscanThread.is_alive())
+
+    print("Threads active: " + str(threading.enumerate()))
     sys.exit(0)

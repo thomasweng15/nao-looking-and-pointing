@@ -50,6 +50,7 @@ add_message_files(
 	Touch.msg
 	HumanBehavior.msg
 	Timer.msg
+	RobotBehavior.msg
  )
 
 ## Generate services in the 'srv' folder

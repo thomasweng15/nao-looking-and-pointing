@@ -13,6 +13,7 @@ First, I need to make sure you can understand my instructions. I will name an ob
 If you have any questions, now is the time to ask the experimenter.
 
 [head press]
+[system validation]
 
 Great! Let's begin.
 

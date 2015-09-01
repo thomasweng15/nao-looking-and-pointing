@@ -224,6 +224,10 @@ class ScriptReader():
             self.script_status.publish("InstructionsStop")
         elif commandstring == 'reset blocks':
             self.script_status.publish("ResetBlocks")
+        elif commandstring == 'hri construction':
+            self.script_status.publish("HRIConstruction")
+        elif commandstring == 'system validation':
+            self.script_status.publish("SystemValidation")
         else:
             # Sleep for the specified amount of time
             try:
