@@ -9,6 +9,7 @@ Analyze rosbags from NVB experiment.
 import sys
 import argparse
 import glob
+import re
 import rosbag
 
 #bagfile = '../rosbags/p0_2015-08-31-16-04-56.bag'
@@ -17,7 +18,7 @@ def printMessages(bag, topicslist):
 
 	for topic, msg, t in bag.read_messages(
 		topics=topicslist):
-		print '------' + str(t) + '------'
+		print '---' + str(t) + '---'
 		print topic
 		print msg
 
@@ -32,6 +33,8 @@ def system_validation(bag):
 
 	Returns a list of accuracies and a list of RTs by block.
 	"""
+	print("----- System validation analysis -----")
+
 	# Possible actions of the robot
 	action_list = ['none','look','point','lookandpoint']
 
@@ -62,23 +65,36 @@ def system_validation(bag):
 			target_obj = msg.object_id
 			nvb_action = msg.action
 			total_actions[nvb_action] += 1
-		elif topic == 'human_behavior' \
-			and not target_obj == None \
-			and t - start_time < t_window:
+		elif (topic == 'human_behavior' 
+			and not target_obj == None
+			and t - start_time < t_window):
 			# This human behavior followed a robot behavior
 			# within the specified time window
-			touch_obj = msg.object_id
-			if touch_obj == target_obj:
-				# If this is a successful touch, record the accuracy
-				# and RTs and then reset all trackers (so we only save
-				# the first such correct touch)
-				assert nvb_action in action_list
-				accuracy[nvb_action] += 1
-				touch_time = t - start_time
-				responsetime[nvb_action] += touch_time
-				start_time = None
-				target_obj = None
-				nvb_action = None
+			objlist = msg.target
+			effectorlist = msg.effector
+			assert len(objlist) > 0
+			assert len(objlist) == len(effectorlist)
+			for i in range(len(objlist)):
+				if effectorlist[i] == 'leftarm' or \
+					effectorlist[i] == 'rightarm':
+					touch_obj = objlist[i]
+					# If this is a successful touch, record the accuracy
+					# and RTs and then reset all trackers (so we only save
+					# the first such correct touch)
+					if touch_obj == target_obj:
+						assert nvb_action in action_list
+						accuracy[nvb_action] += 1
+						touch_time = t - start_time
+						responsetime[nvb_action] += touch_time
+						start_time = None
+						target_obj = None
+						nvb_action = None
+						break # leave the for loop
+
+	print "Raw data:"
+	print "  total actions: " + str(total_actions)
+	print "  accuracy: " + str(accuracy)
+	print "  response times: " + str(responsetime)
 
 	# Construct a data string that can be plugged into SPSS
 	# format: subjID, none, look, point, lookandpoint
@@ -92,8 +108,19 @@ def system_validation(bag):
 		accuracy_datastring += ', ' + str(aveAcc)
 		rt_datastring += ', ' + str(aveRt)
 
+	print "Calculated data:"
+	print "  average accuracy: " + accuracy_datastring
+	print "  average RTs: " + rt_datastring
+
 	return [accuracy_datastring, rt_datastring]
 
+def completionTimeTask1(bag):
+	""" 
+	Report completion time for task 1
+
+	Returns a CSV with "condition, time".
+	"""
+	
 
 if __name__ == '__main__':
 	global userid, bagfile, bag
@@ -106,17 +133,22 @@ if __name__ == '__main__':
 		type=int)
 
 	args = parser.parse_args()
-	userid = args.user
-	bagfname = args.bag
+	arg_userid = args.user
+	arg_bagfname = args.bag
 
-	# Get bag file
-	if bagfname:
-		bagfile = bagfname
-	elif userid:
-		rosbagdir = '../rosbags/'
-		potential_files = glob.glob(rosbagdir+'p'+str(userid)+'_*.bag')
+	rosbagdir = '../rosbags/'
+	userid = None
+	bagfile = None
+
+	# Get bag file and user id
+	if arg_bagfname is not None:
+		bagfile = arg_bagfname
+		userid = int(re.findall(r'\d+', arg_bagfname)[0]) # first integer
+	elif arg_userid is not None:
+		userid = arg_userid
+		potential_files = glob.glob(rosbagdir+'p'+str(arg_userid)+'_*.bag')
 		if len(potential_files) == 0:
-			print("No file found for participant %d." % userid)
+			print("No file found for participant %d." % arg_userid)
 			sys.exit()
 		elif len(potential_files) == 1:
 			bagfile = potential_files[0]
@@ -126,4 +158,5 @@ if __name__ == '__main__':
 			sys.exit()
 
 	bag = rosbag.Bag(bagfile)
-	printMessages(bag, ['human_behavior', 'robot_behavior'])
+	#printMessages(bag, ['human_behavior', 'robot_behavior'])
+	system_validation(bag)
