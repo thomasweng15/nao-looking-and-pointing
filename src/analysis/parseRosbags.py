@@ -114,14 +114,41 @@ def system_validation(bag):
 
 	return [accuracy_datastring, rt_datastring]
 
-def completionTimes(bag):
+def getCondition(bag):
+	"""
+	Report the NVB and Interruption condition.
+
+	Returns a string "X,Y" where X={True,False} for 
+	NVB and Y={True,False} for Interruption
+	"""
+	nvb = None
+	interrupt = None
+
+	for topic, msg, t in bag.read_messages(topics='script_status'):
+		# Listen for and record NVB condition, which will
+		# come in as "nvb:X" where X = {True, False}
+		msgtokens = msg.data.split(':')
+		if len(msgtokens) == 2:
+			if msgtokens[0] == 'nvb':
+				nvb = msgtokens[1]
+			elif msgtokens[0] == 'interruption':
+				interrupt = msgtokens[1]
+
+
+	# Make sure we actually captured the data
+	assert nvb is not None
+	assert interrupt is not None
+
+	datastring = str(nvb) + ',' + str(interrupt)
+	return datastring
+
+def getCompletionTimes(bag):
 	""" 
 	Report completion time for task 1 and 2.
 
-	Returns a CSV with "condition, time1, time2".
+	Returns a CSV with "time1,time2".
 	"""
 
-	nvbCondition = None
 	time1 = None
 	time2 = None
 
@@ -130,41 +157,26 @@ def completionTimes(bag):
 	tmpTime = 0.0
 
 
-	for topic, msg, t in bag.read_messages(
-		topics=['script_status','timer_info']):
-		
-		if topic == 'script_status':
-			# Listen for and record NVB condition, which will
-			# come in as "nvb:X" where X = {True, False}
-			msgtokens = msg.data.split(':')
-			if (len(msgtokens) == 2 and
-				msgtokens[0] == 'nvb'):
-				nvbCondition = msgtokens[1]
-		
-		elif topic == 'timer_info':
-			# Listen for and calculate total task time
-			# for tasks 1 and 2
-			if msg.event == 'start':
-				tmpTime = msg.time
-			elif msg.event == 'stop':
-				totalTime = msg.time - tmpTime
-				if not task1done:
-					time1 = totalTime
-					task1done = True
-					totalTime = 0.0
-				else:
-					time2 = totalTime
+	for topic, msg, t in bag.read_messages(topics='timer_info'):
+		# Listen for and calculate total task time
+		# for tasks 1 and 2
+		if msg.event == 'start':
+			tmpTime = msg.time
+		elif msg.event == 'stop':
+			totalTime = msg.time - tmpTime
+			if not task1done:
+				time1 = totalTime
+				task1done = True
+				totalTime = 0.0
+			else:
+				time2 = totalTime
 
 
 	# Make sure all the data came through
-	assert nvbCondition is not None
 	assert time1 is not None
 	assert time2 is not None
 
-	datastring = str(nvbCondition) + ',' \
-			   + str(time1) + ',' \
-			   + str(time2) + '\n'
-	print datastring
+	datastring = str(time1) + ',' + str(time2)
 	return datastring
 
 
@@ -207,4 +219,6 @@ if __name__ == '__main__':
 	bag = rosbag.Bag(bagfile)
 	#printMessages(bag, ['human_behavior', 'robot_behavior'])
 	#system_validation(bag)
-	completionTimes(bag)
+	cond = getCondition(bag)
+	times = getCompletionTimes(bag)
+	print cond + ',' + times
