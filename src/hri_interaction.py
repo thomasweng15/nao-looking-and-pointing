@@ -72,6 +72,7 @@ class InteractionController():
 
         # Create relevant publishers
         self.robot_behavior_pub = rospy.Publisher('/robot_behavior', RobotBehavior)
+        self.script_status_pub = rospy.Publisher('/script_status', String)
 
         # Start rosbags in a separate thread
         rosbagthread = threading.Thread(target=self.recordRosbags, 
@@ -112,10 +113,10 @@ class InteractionController():
         self.nao.startHeadScan() # for expressiveness
         self.gazescores = dict()
         self.pointscores = dict()
-        #self.waitForGazePointScores()
+        self.waitForGazePointScores()
 
         # Precompute the saliency scores
-        #self.saliency_scores = self.precomputeSaliencyScores(0)
+        self.saliency_scores = self.precomputeSaliencyScores(0)
         self.nao.stopHeadScan() # for expressiveness
 
 
@@ -314,7 +315,6 @@ class InteractionController():
     def scriptStatusCallback(self, msg):
         """ Listen for script status. """
         status = msg.data
-        print "script callback status: " + status
 
         # Turn on idle behaviors when instructions or interruption
         # are over, in case NVB during instructions turned them off
@@ -423,6 +423,12 @@ class InteractionController():
         self.objdict[4].words = ['small green']
         self.objdict[5].words = ['large blue']
 
+
+        # Publish information about this participant
+        self.script_status_pub.publish('userID:' + str(self.userID))
+        self.script_status_pub.publish('nvb:' + str(self.nvb))
+        self.script_status_pub.publish('interruption:' + str(self.interrupt))
+
     def shutdown(self):
         """ Shut down cleanly. """
         rospy.logwarn("Shutting down...")
@@ -452,8 +458,8 @@ class InteractionController():
         #self.systemValidation()
 
         # Play HRI script
-        #self.nao.startIdle()
-        #self.scriptreader.readScript(self.hriScript)
+        self.nao.startIdle()
+        self.scriptreader.readScript(self.hriScript)
 
         self.shutdown()
 
@@ -503,9 +509,4 @@ if __name__ == "__main__":
         ip, port, camID, nvb, interrupt)
     ic.main()
 
-    print "nao's thread statuses:"
-    print(ic.nao.idleThread.is_alive())
-    print(ic.nao.headscanThread.is_alive())
-
-    print("Threads active: " + str(threading.enumerate()))
     sys.exit(0)

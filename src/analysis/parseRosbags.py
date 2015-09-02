@@ -114,13 +114,60 @@ def system_validation(bag):
 
 	return [accuracy_datastring, rt_datastring]
 
-def completionTimeTask1(bag):
+def completionTimes(bag):
 	""" 
-	Report completion time for task 1
+	Report completion time for task 1 and 2.
 
-	Returns a CSV with "condition, time".
+	Returns a CSV with "condition, time1, time2".
 	"""
-	
+
+	nvbCondition = None
+	time1 = None
+	time2 = None
+
+	# flags and counters
+	task1done = False
+	tmpTime = 0.0
+
+
+	for topic, msg, t in bag.read_messages(
+		topics=['script_status','timer_info']):
+		
+		if topic == 'script_status':
+			# Listen for and record NVB condition, which will
+			# come in as "nvb:X" where X = {True, False}
+			msgtokens = msg.data.split(':')
+			if (len(msgtokens) == 2 and
+				msgtokens[0] == 'nvb'):
+				nvbCondition = msgtokens[1]
+		
+		elif topic == 'timer_info':
+			# Listen for and calculate total task time
+			# for tasks 1 and 2
+			if msg.event == 'start':
+				tmpTime = msg.time
+			elif msg.event == 'stop':
+				totalTime = msg.time - tmpTime
+				if not task1done:
+					time1 = totalTime
+					task1done = True
+					totalTime = 0.0
+				else:
+					time2 = totalTime
+
+
+	# Make sure all the data came through
+	assert nvbCondition is not None
+	assert time1 is not None
+	assert time2 is not None
+
+	datastring = str(nvbCondition) + ',' \
+			   + str(time1) + ',' \
+			   + str(time2) + '\n'
+	print datastring
+	return datastring
+
+
 
 if __name__ == '__main__':
 	global userid, bagfile, bag
@@ -159,4 +206,5 @@ if __name__ == '__main__':
 
 	bag = rosbag.Bag(bagfile)
 	#printMessages(bag, ['human_behavior', 'robot_behavior'])
-	system_validation(bag)
+	#system_validation(bag)
+	completionTimes(bag)

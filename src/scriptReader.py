@@ -181,7 +181,7 @@ class ScriptReader():
         self.timer_stop = False
         self.timer_reset = False
 
-        rospy.loginfo("Received command: " + commandstring)
+        rospy.loginfo("Script command: " + commandstring)
 
         if commandstring == 'foot bumper press':
             # Listen for the next bumper press
