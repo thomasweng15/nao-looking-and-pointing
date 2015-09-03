@@ -30,8 +30,10 @@ class ROSListenerClient(WebSocketClient):
 
 
 if __name__ == '__main__':
-	ws = ROSListenerClient(windowsIP)
-	ws.connect()
-	ws.run_forever()
-
-	ws.close()
+	try:
+		ws = ROSListenerClient(windowsIP)
+		ws.connect()
+		ws.run_forever()
+	except KeyboardInterrupt:
+		print "KeyboardInterrupt"
+		ws.close()
