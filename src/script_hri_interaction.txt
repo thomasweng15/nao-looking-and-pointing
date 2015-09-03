@@ -36,6 +36,7 @@ Excellent. You will use the timer to measure how long it takes you to complete t
 If you have any questions, now is the time to ask the experimenter.
 
 [head press]
+[reset blocks]
 
 Alright, I will give you the first set of instructions. Remember, this is a test of memory, so listen to all of my instructions first. Don't touch the blocks until I say you can.
 

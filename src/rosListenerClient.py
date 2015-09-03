@@ -24,8 +24,9 @@ class ROSListenerClient(WebSocketClient):
 
 	def sendRosMessage(self, msg):
 		""" Send the ROS message along to the server. """
-		print "Sending message: " + msg.data
-		self.send(msg.data)
+		if msg.data == "ResetBlocks":
+			print "Sending message: " + msg.data
+			self.send(msg.data)
 
 
 if __name__ == '__main__':
