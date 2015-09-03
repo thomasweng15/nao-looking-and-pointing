@@ -20,6 +20,9 @@ class RosListenerServer(WebSocket):
 		self.script_listener = rospy.Subscriber(
 			"/script_status", String, self.sendRosMessage)
 
+		self.send("Test message")
+		self.send("Test message")
+
 	def received_message(self, m):
 		print "Received: " + str(m)
 
