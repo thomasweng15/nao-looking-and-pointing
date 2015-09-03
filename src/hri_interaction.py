@@ -455,7 +455,7 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        self.systemValidation()
+        #self.systemValidation()
 
         # Play HRI script
         self.nao.startIdle()

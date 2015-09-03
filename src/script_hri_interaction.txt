@@ -9,7 +9,27 @@ Now, you can help me build and sort these Legos. I will give you a list of instr
 
 [0.5]
 
-There is a timer on the computer next to you. When I am finished giving instructions, you will time how long it takes you to complete them. I will tell you when to press start on the timer. Do not press it now. The computer has a touch screen so you can press the button with your finger.
+There is a timer on the computer next to you. When I am finished giving instructions, you will use this timer to measure how long it takes you to complete the task.
+
+[0.5]
+
+The computer has a touch screen so you can press the button with your finger. To practice, press start on the timer now.
+
+[timer practice start] 
+
+[timer start]
+
+Good! Press stop on the timer now.
+
+[timer stop]
+
+Great! Press reset to set the timer back to zero.
+
+[timer reset]
+
+[timer practice stop]
+
+Excellent. You will use the timer to measure how long it takes you to complete the instructions you've memorized. It is important that you listen to all of my instructions before starting the task or the timer. I will tell you when to begin.
 
 [0.5]
 
@@ -17,7 +37,7 @@ If you have any questions, now is the time to ask the experimenter.
 
 [head press]
 
-Alright, let's begin. Remember, I will give you all of the instructions first. Don't touch the blocks until I say you can.
+Alright, I will give you the first set of instructions. Remember, this is a test of memory, so listen to all of my instructions first. Don't touch the blocks until I say you can.
 
 [1]
 [instructions 1 start]
@@ -28,7 +48,7 @@ Alright, let's begin. Remember, I will give you all of the instructions first. D
 
 [1]
 
-That concludes the instructions. When I tell you to begin, press the start button on the timer to your right, then sort the blocks according to my instructions. Press the stop button when you are finished. Begin now.
+That concludes the instructions. Press the start button on the timer and begin now. Press stop when you are finished.
 
 [instructions 1 stop]
 [timer stop]

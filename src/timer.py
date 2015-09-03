@@ -69,6 +69,15 @@ def statusCallback(msg):
 		startButton['state'] = DISABLED
 		stopButton['state'] = DISABLED
 		resetButton['state'] = NORMAL
+	elif msg.data == 'TimerPracticeStart':
+		startButton['state'] = NORMAL
+		stopButton['state'] = NORMAL
+		resetButton['state'] = NORMAL
+	elif msg.data == 'TimerPracticeStop':
+		startButton['state'] = DISABLED
+		stopButton['state'] = DISABLED
+		resetButton['state'] = DISABLED
+
 
 
 

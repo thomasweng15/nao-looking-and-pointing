@@ -226,6 +226,10 @@ class ScriptReader():
             self.script_status.publish("HRIConstruction")
         elif commandstring == 'system validation':
             self.script_status.publish("SystemValidation")
+        elif commandstring == 'timer practice start':
+            self.script_status.publish("TimerPracticeStart")
+        elif commandstring == 'timer practice stop':
+            self.script_status.publish("TimerPracticeStop")
         else:
             # Sleep for the specified amount of time
             try:
