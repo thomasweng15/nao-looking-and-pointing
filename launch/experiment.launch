@@ -15,6 +15,9 @@
 	<node pkg="rosbridge_server" name="rosbridge_websocket" type="rosbridge_websocket" required="true" />        
 	<node pkg="kinect2_pointing_recognition" name="kinect_parser" type="kinect_parser.py"/>
 
+	<!-- Start ROS listener server back to Windows -->
+	<node name="rosListenerServer" pkg="nao_looking_and_pointing" type="rosListenerServer.py" />
+
 	<!-- Start watching human behavior -->
 	<node name="human_behavior" pkg="nao_looking_and_pointing" type="senseHumanNVB.py"/>
 

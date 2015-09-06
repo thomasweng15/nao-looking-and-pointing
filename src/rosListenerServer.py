@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from wsgiref.simple_server import make_server
 #from ws4py.client.threadedclient import WebSocketClient
 from ws4py.websocket import WebSocket
