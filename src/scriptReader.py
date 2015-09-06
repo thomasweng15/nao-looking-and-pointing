@@ -198,6 +198,7 @@ class ScriptReader():
             while not self.timer_stop:
                 sleep(0.5)
         elif commandstring == 'timer reset':
+            self.script_status.publish("TimerReset")
             while not self.timer_reset:
                 sleep(0.5)
         elif commandstring == 'interruption start':

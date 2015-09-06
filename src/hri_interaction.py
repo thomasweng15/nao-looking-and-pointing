@@ -345,11 +345,16 @@ class InteractionController():
 
     def waitForAllMarkers(self):
         rospy.loginfo("Markers visible: " + str(self.markersVisible))
+        
         if len(self.markersVisible) is not self.numObj:
             rospy.logwarn("Waiting for all markers to be visible.")
             self.nao.startHeadScan()
         while len(self.markersVisible) is not self.numObj:
             sleep(0.5)
+
+        rospy.loginfo("Markers visible: " + str(self.markersVisible))
+        self.nao.stopHeadScan()
+
 
     def systemValidation(self):
         """

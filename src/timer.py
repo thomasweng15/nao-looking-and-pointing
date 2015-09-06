@@ -15,6 +15,7 @@ from std_msgs.msg import String
 from Tkinter import *
 import tkFont
 
+
 class MyTimer():
 	def __init__(self, label, starttime=0.0):
 		self.t = starttime
@@ -65,7 +66,7 @@ def statusCallback(msg):
 		startButton['state'] = NORMAL
 		stopButton['state'] = NORMAL
 		resetButton['state'] = DISABLED
-	elif msg.data == 'ResetBlocks':
+	elif msg.data == 'TimerReset':
 		startButton['state'] = DISABLED
 		stopButton['state'] = DISABLED
 		resetButton['state'] = NORMAL
@@ -77,8 +78,6 @@ def statusCallback(msg):
 		startButton['state'] = DISABLED
 		stopButton['state'] = DISABLED
 		resetButton['state'] = DISABLED
-
-
 
 
 timer = None
