@@ -1,0 +1,21 @@
+[task 2]
+Okay. I will give you a new set of instructions. Please listen to all of my instructions first. When I say so, you can start the timer and begin completing the instructions.
+
+[1]
+[instructions 2 start]
+
+# Task 2 here
+
+[interruption start] # if interruption condition, wait for head press
+
+[interruption stop] # if interruption condition, wait for head press
+
+
+[1]
+
+That concludes the instructions. When I tell you to begin, press the start button on the timer to your right, then sort the blocks according to my instructions. Press the stop button when you are finished. Begin now.
+
+[instructions 2 stop]
+[timer stop]
+
+Great job! This experiment is over. Thank you for playing with me. You can let the experimenter know that you are finished now.

@@ -1,0 +1,27 @@
+[task 1]
+
+Alright, I will give you the first set of instructions. Remember, this is a test of memory, so listen to all of my instructions first. Don't touch the blocks until I say you can.
+
+[1]
+[instructions 1 start]
+
+# Task 1 here
+
+<0 small red block> Put the small red block <3 large lime> on top of the large lime block.
+
+[1]
+
+That concludes the instructions. Press the start button on the timer and begin now. Press stop when you are finished.
+
+[instructions 1 stop]
+[timer stop]
+
+Good job. That was fun, right? Let's do it again. Please pull all of the blocks out of the bins, take them apart, and put them on the table in front of you. For me to see the blocks, they have to be below the line of tape on the table and the tags have to be facing me.
+
+[5] # TODO add signal from Kinect that all fiducials have been detected?
+
+When you're done placing the blocks on the table, press the reset button on the timer to continue.
+
+[timer reset]
+
+[reset blocks]
