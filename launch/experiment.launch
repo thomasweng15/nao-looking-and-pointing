@@ -2,7 +2,9 @@
 	<!-- Arguments passed in from command line -->
 	<arg name="ip" default="192.168.1.2" />
 	<arg name="port" default="9559" />
-	<arg name="hriscript" default="script_hri_interaction.txt" />
+	<arg name="instructions" default="script_hri_instructions.txt" />
+	<arg name="task1" default="script_hri_task1.txt" />
+	<arg name="task2" default="script_hri_task2.txt" />
 	<arg name="usernum" />
 	<arg name="nvb" />
 	<arg name="interrupt" />
@@ -23,5 +25,5 @@
 	<node name="timer" pkg="nao_looking_and_pointing" type="timer.py" />
 
 	<!-- Start the node that runs the experiment -->
-	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="$(arg usernum) $(arg hriscript) $(arg valscript) $(arg ip) $(arg port) $(arg usercam) $(arg nvb) $(arg interrupt)" required="true" output="screen"/>
+	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="$(arg usernum) $(arg valscript) $(arg ip) $(arg port) $(arg usercam) $(arg nvb) $(arg interrupt) --script-instructions $(arg instructions) --script-task1 $(arg task1) --script-task2 $(arg task2)" required="true" output="screen"/>
 </launch>

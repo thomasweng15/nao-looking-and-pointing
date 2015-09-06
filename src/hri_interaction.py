@@ -8,7 +8,7 @@ This module runs the HRI construction interaction.
 """
 # ROS imports
 import rospy
-from kinect2_pointing_recognition.msg import ObjectsInfo, GazePointInfo
+from kinect2_pointing_recognition.msg import ObjectsInfo, GazePointInfo, MarkerInfo
 from nao_looking_and_pointing.msg import ScriptObjectRef, RobotBehavior
 from std_msgs.msg import String
 # --------------------------------
@@ -37,7 +37,9 @@ class InteractionController():
 
     def __init__(self, 
                  usernum, 
-                 hri_script_filename, 
+                 instructions_script_filename,
+                 task1_script_filename,
+                 task2_script_filename, 
                  validation_script_filename, 
                  robotIP, 
                  robotPort, 
@@ -49,7 +51,9 @@ class InteractionController():
 
         Arguments:
         usernum -- ID number for participant
-        hri_script_filename -- string name of a script for the HRI interaction
+        instructions_script_filename -- string name of a script for the HRI instructions
+        task1_script_filename -- string name of a script for the first HRI task
+        task2_script_filename -- string name of a script for the second HRI task
         validation_script_filename -- string name of a script for the validation interaction
         robotIP -- Nao's IP address
         robotPort -- Nao's port
@@ -69,6 +73,7 @@ class InteractionController():
         self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
         self.gazepoint_info_listener = rospy.Subscriber('/gazepoint_info', GazePointInfo, self.gazepointInfoCallback)
         self.script_status_listener = rospy.Subscriber('/script_status', String, self.scriptStatusCallback)
+        self.marker_info_listener = rospy.Subscriber('/marker_info', MarkerInfo, self.markerInfoCallback)
 
         # Create relevant publishers
         self.robot_behavior_pub = rospy.Publisher('/robot_behavior', RobotBehavior)
@@ -85,10 +90,16 @@ class InteractionController():
         # dictionary of objects, key = object ID, value = Lego object
         self.objdict = dict()
 
+        # arguments specifying the study conditions
         assert isinstance(nonverbalBehavior,bool)
         self.nvb = nonverbalBehavior
         assert isinstance(interruption,bool)
         self.interrupt = interruption
+
+        # fiducial markers visible - updated in self.markerInfoCallback
+        self.markersVisible = []
+
+        self.numObj = 7
 
         rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
@@ -102,7 +113,9 @@ class InteractionController():
             % str(self.interrupt))
         # Initialize script reader and set scripts
         self.scriptreader = ScriptReader(self.nao, self.interrupt)
-        self.hriScript = dirpath + hri_script_filename
+        self.instructions = dirpath + instructions_script_filename
+        self.task1 = dirpath + task1_script_filename
+        self.task2 = dirpath + task2_script_filename
         self.validationScript = dirpath + validation_script_filename
 
         # rospy.loginfo('Initializing hardcoded objects')
@@ -322,6 +335,21 @@ class InteractionController():
             self.nao.startIdle()
         elif status == "InterruptionStop":
             self.nao.startIdle()
+            
+
+    def markerInfoCallback(self, msg):
+        """ Update the list of visible fiducial markers. """
+        self.markersVisible = []
+        for m in msg.markerlist:
+            self.markersVisible.append(m)
+
+    def waitForAllMarkers(self):
+        rospy.loginfo("Markers visible: " + str(self.markersVisible))
+        if len(self.markersVisible) is not self.numObj:
+            rospy.logwarn("Waiting for all markers to be visible.")
+            self.nao.startHeadScan()
+        while len(self.markersVisible) is not self.numObj:
+            sleep(0.5)
 
     def systemValidation(self):
         """
@@ -415,13 +443,14 @@ class InteractionController():
         self.nao.startIdle()
 
         # Assign words to the objects, which should be in objdict by now
-        assert len(self.objdict) == 6
+        assert len(self.objdict) == self.numObj
         self.objdict[0].words = ['small red']
         self.objdict[1].words = ['large orange']
         self.objdict[2].words = ['small yellow']
         self.objdict[3].words = ['large lime']
         self.objdict[4].words = ['small green']
-        self.objdict[5].words = ['large blue']
+        self.objdict[5].words = ['small blue']
+        self.objdict[6].words = ['small blue']
 
 
         # Publish information about this participant
@@ -455,11 +484,15 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        self.systemValidation()
+        #self.systemValidation() TODO uncomment
 
         # Play HRI script
         self.nao.startIdle()
-        self.scriptreader.readScript(self.hriScript)
+        self.scriptreader.readScript(self.instructions)
+        self.waitForAllMarkers()
+        self.scriptreader.readScript(self.task1)
+        self.waitForAllMarkers()
+        self.scriptreader.readScript(self.task2)
 
         self.shutdown()
 
@@ -472,9 +505,6 @@ if __name__ == "__main__":
     parser.add_argument('usernum',
         help='ID number of the participant (should be unique to participant)',
         type=int)
-    parser.add_argument('hri_scriptname',
-        help='the file name of the script for the HRI portion',
-        default='testscript.txt')
     parser.add_argument('validation_scriptname',
         help='the file name of the script for the validation portion')
     parser.add_argument('robotIP',
@@ -494,9 +524,20 @@ if __name__ == "__main__":
     parser.add_argument('interruption_on',
         help='boolean indicating whether an interruption will occur',
         type=ast.literal_eval)
+    parser.add_argument('--script-instructions',
+        dest="instructions",
+        help='the file name of the script for the instructions',
+        default='testscript.txt')
+    parser.add_argument('--script-task1',
+        dest='task1',
+        help='the file name of the script for the 1st HRI portion',
+        default='testscript.txt')
+    parser.add_argument('--script-task2',
+        dest='task2',
+        help='the file name of the script for the 2nd HRI portion',
+        default='testscript.txt')
 
     args = parser.parse_args()
-    hri_script = args.hri_scriptname
     usernum = args.usernum
     val_script = args.validation_scriptname
     ip = args.robotIP
@@ -504,9 +545,12 @@ if __name__ == "__main__":
     camID = args.cameraID
     nvb = args.nvb_on
     interrupt = args.interruption_on
+    instructions = args.instructions
+    task1 = args.task1
+    task2 = args.task2
 
-    ic = InteractionController(usernum, hri_script, val_script, 
-        ip, port, camID, nvb, interrupt)
+    ic = InteractionController(usernum, instructions, task1, task2,
+        val_script,  ip, port, camID, nvb, interrupt)
     ic.main()
 
     sys.exit(0)
