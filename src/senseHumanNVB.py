@@ -7,6 +7,7 @@ from numpy import *
 import rospy
 import time
 from lego import Lego
+from kinectObjects import KinectObjects
 from std_msgs.msg import String
 from kinect2_pointing_recognition.msg import SkeletonInfo, ObjectsInfo, FaceInfo, SpeechInfo
 from nao_looking_and_pointing.msg import HumanBehavior
@@ -30,7 +31,7 @@ class ComputeAttention():
 
 		self.skeletons = Skeletons(max_people)
 		self.faces = Faces(max_people)
-		self.objects = Objects()
+		self.objects = KinectObjects()
 		self.speech = Speech()
 
 		self.rate = rospy.Rate(5) # 5hz, or 5 per second
@@ -67,7 +68,7 @@ class ComputeAttention():
 	def head_to_obj_vec(self, person_id, object_id):
 		if list(self.skeletons.array[person_id].head) == [0.0, 0.0, 0.0]:
 			return [0.0, 0.0, 0.0]
-		return array(self.skeletons.array[person_id].head) - self.objects.objdict[object_id].pos
+		return array(self.skeletons.array[person_id].head) - self.objects.objdict[object_id].loc
 
 	def point_vs_obj_angles(self, person_id, object_id):
 		head_to_handtips = self.skeletons.head_to_handtip_vecs(person_id)
@@ -96,8 +97,8 @@ class ComputeAttention():
 	def handtip_to_obj_vecs(self, person_id, object_id):
 		if list(self.skeletons.array[person_id].handTipLeft) == [0.0, 0.0, 0.0]:
 			return [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
-		left = self.objects.objdict[object_id].pos - array(self.skeletons.array[person_id].handTipLeft)
-		right = self.objects.objdict[object_id].pos - array(self.skeletons.array[person_id].handTipRight)
+		left = self.objects.objdict[object_id].loc - array(self.skeletons.array[person_id].handTipLeft)
+		right = self.objects.objdict[object_id].loc - array(self.skeletons.array[person_id].handTipRight)
 		return [left, right]
 
 	def is_touching(self, person_id, object_id):
@@ -147,6 +148,7 @@ class ComputeAttention():
 			l_target_object = None
 			for j in range(0, len(self.objects.objdict)):
 				pointing_angles = self.point_vs_obj_angles(person_id, j)
+				print pointing_angles
 				pointing_threshold = [angle is not None and angle < self.point_aptr / 2 for angle in pointing_angles]
 				if pointing_threshold[0] and pointing_angles[0] < l_smallest_angle:
 					l_smallest_angle = pointing_angles[0]
@@ -154,7 +156,8 @@ class ComputeAttention():
 				if pointing_threshold[1] and pointing_angles[1] < r_smallest_angle:
 					r_smallest_angle = pointing_angles[1]
 					r_target_object = j
-				rospy.loginfo("%s\t%s", pointing_threshold, pointing_angles)
+				rospy.loginfo("point threshold: %s\npoint angle: %s", 
+					pointing_threshold, pointing_angles)
 			if r_target_object:
 				effectorlist.append("rightarm")
 				targetlist.append(r_target_object)
@@ -211,27 +214,6 @@ class Faces():
 		pitch_rad = math.radians(self.array[person_id].pitch)
 		return [math.sin(yaw_rad), math.sin(pitch_rad), math.cos(yaw_rad)]
 
-class Objects():
-	def __init__(self):
-		self.objdict = dict()
-
-		rospy.Subscriber('/objects_info', ObjectsInfo, self.objects_callback)
-
-	def objects_callback(self, objectMsg):
-		obj_id = int(objectMsg.object_id)
-
-		if obj_id in self.objdict:
-			# if the object location has changed, update it
-			if not objectMsg.pos == self.objdict[obj_id].loc:
-				self.objdict[obj_id].loc = objectMsg.pos
-			else:
-				# if this is a new object, add it to objdict
-				o = Lego(obj_id,   		   # ID number
-					objectMsg.pos,         # 3D position
-					objectMsg.color_upper, # upper RGB color threshold
-					objectMsg.color_lower, # lower RGB color threshold
-					'')                    # descriptor words
-				self.objdict[obj_id] = o
 
 class Speech():
 	def __init__(self):

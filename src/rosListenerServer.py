@@ -42,4 +42,8 @@ if __name__ == '__main__':
 						app				= WebSocketWSGIApplication(
 											handler_cls=RosListenerServer))
 	server.initialize_websockets_manager()
-	server.serve_forever()
+
+	try:
+		server.serve_forever()
+	except:
+		server.server_close()

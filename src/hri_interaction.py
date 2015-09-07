@@ -25,7 +25,7 @@ import random
 import ast
 import numpy as np
 from time import sleep, time
-from lego import Lego
+from kinectObjects import KinectObjects
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
 from nvbModel import NVBModel
@@ -69,7 +69,6 @@ class InteractionController():
         rospy.loginfo('Initializing interaction controller')
 
         # Subscribe to relevant topics
-        self.objects_info_listener = rospy.Subscriber('/objects_info', ObjectsInfo, self.objectsInfoCallback)
         self.nvb_command_listener = rospy.Subscriber('/script_object_reference', ScriptObjectRef, self.objectRefCallback)
         self.gazepoint_info_listener = rospy.Subscriber('/gazepoint_info', GazePointInfo, self.gazepointInfoCallback)
         self.script_status_listener = rospy.Subscriber('/script_status', String, self.scriptStatusCallback)
@@ -88,7 +87,7 @@ class InteractionController():
         self.userID = usernum
 
         # dictionary of objects, key = object ID, value = Lego object
-        self.objdict = dict()
+        self.objects = KinectObjects()
 
         # arguments specifying the study conditions
         assert isinstance(nonverbalBehavior,bool)
@@ -120,7 +119,7 @@ class InteractionController():
 
         # rospy.loginfo('Initializing hardcoded objects')
         # # FOR TESTING!
-        # self.initializeObjects()
+        # self.objects.createFakeObjects()
 
         # Precompute the gaze and point scores
         self.nao.startHeadScan() # for expressiveness
@@ -131,21 +130,6 @@ class InteractionController():
         # Precompute the saliency scores
         self.saliency_scores = self.precomputeSaliencyScores(0)
         self.nao.stopHeadScan() # for expressiveness
-
-
-    def convertCoords(self, kinectCoords):
-        '''
-        The Kinect and the Nao use define coordinate systems differently. 
-        This function converts Kinect coordinates to Nao coordinates. 
-        '''
-        # originTranslationVector stores the displacement of the origin
-        # in the Kinect coordinate system to the Nao coordinate system.
-        originTranslationVector = [0, -0.4, 0] # hard-coded
-        x = kinectCoords[2] - originTranslationVector[2]
-        y = kinectCoords[0] - originTranslationVector[0]
-        z = kinectCoords[1] - originTranslationVector[1]
-        return [x,y,z]
-
 
     def recordRosbags(self, usernum):
         """ Start recording rosbags of selected topics. """
@@ -161,24 +145,6 @@ class InteractionController():
             'timer_info',                       # from timer
             '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
-
-    def initializeObjects(self):
-        """
-        For testing: initialize hardcoded objects.
-
-        Each object consists of colors, ID, and descriptor words.
-
-        Arguments: none
-
-        Returns: none
-        """
-        o1 = Lego(1,[0,0,0],[255,40,40],[200,0,0],['small','red','cube']) #dummy object
-        o2 = Lego(2,[0.5,0.5,0],[40,255,40],[0,100, 0],['small','green','cube'])
-        o3 = Lego(3,[1,0,0],[40,40,255],[0,0,100],['large','blue','block'])
-
-        self.objdict[o1.idnum] = o1
-        self.objdict[o2.idnum] = o2
-        self.objdict[o3.idnum] = o3
 
     def waitForGazePointScores(self):
         """ 
@@ -216,7 +182,7 @@ class InteractionController():
         Precompute the saliency scores of the scene. 
 
         Connects to the user view camera signified by cameraID, and 
-        computes the saliency score for each object in self.objdict
+        computes the saliency score for each object in self.objects.objdict
 
         Arguments: 
         cameraID -- int signifying ID of user view camera
@@ -245,41 +211,11 @@ class InteractionController():
 
         # Call saliency score computing function from NVB model
         saliency_scores = self.model.calculateSaliencyScores(
-            user_view_fname, self.objdict)
+            user_view_fname, self.objects.objdict)
 
         rospy.loginfo('Saved participant view to ' + user_view_fname)
 
         return saliency_scores
-
-    def objectsInfoCallback(self, objectMsg):
-        """
-        Update object positions.
-
-        Parse the ROS message (ObjectsInfo) and update the objects dictionary with
-        new information about existing objects. If the object is not in the dictionary,
-        create an entry for it.
-
-        Arguments:
-        objectMsg -- a ROS message of type ObjectsInfo
-
-        Returns: none
-        """
-        obj_id = int(objectMsg.object_id)
-        obj_pos = self.convertCoords(objectMsg.pos) # convert from Kinect frame to Nao frame
-
-        if obj_id in self.objdict:
-            # if the object location has changed, update it
-            if not obj_pos == self.objdict[obj_id].loc:
-                self.objdict[obj_id].loc = obj_pos
-        else:
-            # if this is a new object, add it to objdict
-            o = Lego(obj_id,                # ID number
-                     obj_pos,               # 3D position
-                     objectMsg.color_upper, # upper RGB color threshold
-                     objectMsg.color_lower, # lower RGB color threshold
-                     '')                    # descriptor words
-            self.objdict[obj_id] = o
-            rospy.logdebug("Adding new object (id %d) to object list", obj_id)
 
     def objectRefCallback(self, objectRefMsg):
         """
@@ -301,7 +237,7 @@ class InteractionController():
         # Parse object reference message
         target_id = objectRefMsg.object_id
         try:
-            self.objdict[target_id]
+            self.objects.objdict[target_id]
         except KeyError:
             rospy.logerr('No object with ID %d in objects dictionary, \
             object reference fails' % target_id)
@@ -310,7 +246,7 @@ class InteractionController():
         words_spoken = objectRefMsg.words
 
         # Find location of target
-        target_loc = self.objdict[target_id].loc
+        target_loc = self.objects.objdict[target_id].loc
 
         # Calculate the correct nonverbal behavior to indicate the target
         action_type = self.findNVBForRef(target_id, words_spoken)
@@ -369,7 +305,7 @@ class InteractionController():
                   + 'results/p'+str(self.userID) \
                   + '_correctactionlist.txt'
         f = open(outfile,'w')
-        for obj in self.objdict.values():
+        for obj in self.objects.objdict.values():
             idnum = obj.idnum
             assert len(obj.words) > 0
             words = obj.words[0]
@@ -381,6 +317,8 @@ class InteractionController():
 
         # Randomize the list
         random.shuffle(action_list)
+
+        self.nao.stopHeadScan()
 
         # Add descriptive speech
         self.scriptreader.readScript(self.validationScript)
@@ -402,7 +340,7 @@ class InteractionController():
         starttime = time()
         totaltime = starttime + 5 # total action should take 5 seconds
 
-        location = self.objdict[target].loc
+        location = self.objects.objdict[target].loc
 
         # Publish message about robot's behavior
         self.robot_behavior_pub.publish(action=action, 
@@ -437,7 +375,7 @@ class InteractionController():
         
         # Call NVBModel function that calculates saliency
         nvb = self.model.calculateNVBForRef(
-            self.saliency_scores, target_id, self.objdict, words_list,
+            self.saliency_scores, target_id, self.objects.objdict, words_list,
             self.gazescores[target_id], self.pointscores[target_id])
         return nvb
 
@@ -448,14 +386,14 @@ class InteractionController():
         self.nao.startIdle()
 
         # Assign words to the objects, which should be in objdict by now
-        assert len(self.objdict) == self.numObj
-        self.objdict[0].words = ['small red']
-        self.objdict[1].words = ['large orange']
-        self.objdict[2].words = ['small yellow']
-        self.objdict[3].words = ['large lime']
-        self.objdict[4].words = ['small green']
-        self.objdict[5].words = ['small blue']
-        self.objdict[6].words = ['small blue']
+        assert len(self.objects.objdict) == self.numObj
+        self.objects.objdict[0].words = ['small red']
+        self.objects.objdict[1].words = ['large orange']
+        self.objects.objdict[2].words = ['small yellow']
+        self.objects.objdict[3].words = ['large lime']
+        self.objects.objdict[4].words = ['small green']
+        self.objects.objdict[5].words = ['small blue']
+        self.objects.objdict[6].words = ['small blue']
 
 
         # Publish information about this participant
@@ -468,6 +406,7 @@ class InteractionController():
         rospy.logwarn("Shutting down...")
 
         # Shut down robot cleanly
+        self.nao.stopHeadScan()
         self.nao.robotShutdown()
 
         # End rosbag recording (from answers.)
@@ -489,15 +428,15 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        #self.systemValidation() TODO uncomment
+        self.systemValidation() 
 
         # Play HRI script
-        self.nao.startIdle()
-        self.scriptreader.readScript(self.instructions)
-        self.waitForAllMarkers()
-        self.scriptreader.readScript(self.task1)
-        self.waitForAllMarkers()
-        self.scriptreader.readScript(self.task2)
+        # self.nao.startIdle() TODO uncomment
+        # self.scriptreader.readScript(self.instructions)
+        # self.waitForAllMarkers()
+        # self.scriptreader.readScript(self.task1)
+        # self.waitForAllMarkers()
+        # self.scriptreader.readScript(self.task2)
 
         self.shutdown()
 
