@@ -36,9 +36,18 @@ class QualtricsParser():
 		return None
 
 # Create output files
-f_sys = open('result_sysval.csv','w')
+f_sysAcc = open('result_sysval_acc.csv','w')
+f_sysRt = open('result_sysval_rt.csv','w')
 f_task = open('result_taskcomp.csv','w')
 f_survey = open('result_survey.csv','w')
+
+# Write headers to files
+f_sysAcc.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
+			   'c2_a1,c2_a2,c2_a3,c2_a4,'
+			   'c3_a1,c3_a2,c3_a3,c3_a4\n')
+f_sysRt.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
+			   'c2_a1,c2_a2,c2_a3,c2_a4,'
+			   'c3_a1,c3_a2,c3_a3,c3_a4\n')
 
 # Keep count of how many bags are opened (for fun)
 count = 0
@@ -65,8 +74,22 @@ for fname in glob.glob(filesToMatch):
 	f_task.write(str(user) + ',' + cond + ',' + taskTimes + '\n')
 
 	# Get system validation information
-	#[acc, rts] = parser.getBlockTouchesInSysval()
-	#f_sys.write(str(user) + ',' + cond + ',' + acc + ',' + rts + '\n')
+	sysval_cond1 = [1,2,3,4]
+	sysval_cond2 = [5,6]
+	sysval_cond3 = [0,7]
+	[acclist, rtlist] = parser.getSysvalSelections(
+		sysval_cond1, sysval_cond2, sysval_cond3)
+	assert len(acclist) == len(rtlist)
+
+	# Write system validation information in useable format
+	sysvalAccResult = str(user)
+	for acc in acclist:
+		sysvalAccResult += ',' + acc
+	f_sysAcc.write(sysvalAccResult + '\n')
+	sysvalRtResult = str(user)
+	for rt in rtlist:
+		sysvalRtResult += ',' + rt
+	f_sysRt.write(sysvalRtResult + '\n')
 
 	# Get subjective survey response data
 	subjlist = qParser.getDataForUser(user)
@@ -79,7 +102,8 @@ for fname in glob.glob(filesToMatch):
 
 	count += 1
 
-f_sys.close()
+f_sysAcc.close()
+f_sysRt.close()
 f_task.close()
 f_survey.close()
 

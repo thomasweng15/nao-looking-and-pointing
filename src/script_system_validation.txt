@@ -6,7 +6,11 @@ Today, you will be helping me build and sort Legos.  You can see the Legos in fr
 
 [1]
 
-First, I need to make sure you can understand my instructions. I will name an object, and your job is to touch the object I name. You only need to briefly touch the object. I will move quickly. If you are unsure, just pick an object to touch as quickly and accurately as possible.
+First, I need to make sure you can understand my instructions. I will name an object, and your job is to identify that object. There is a computer with a touch screen to your right. When I name an object, touch the button corresponding to that object as quickly and accurately as you can.
+
+[0.5]
+
+I will move quickly. If you are unsure which object I mean, just pick one as quickly and accurately as possible.
 
 [1]
 

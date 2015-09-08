@@ -45,7 +45,8 @@ class InteractionController():
                  robotPort, 
                  cameraID=0,
                  nonverbalBehavior = True,
-                 interruption = True):
+                 interruption = True,
+                 nObjects=8):
         """
         Initialize the controller for the HRI interaction.
 
@@ -98,7 +99,7 @@ class InteractionController():
         # fiducial markers visible - updated in self.markerInfoCallback
         self.markersVisible = []
 
-        self.numObj = 7
+        self.numObj = nObjects
 
         rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
@@ -121,15 +122,16 @@ class InteractionController():
         # # FOR TESTING!
         # self.objects.createFakeObjects()
 
+        # Precompute the saliency scores
+        self.saliency_scores = self.precomputeSaliencyScores(0)
+        self.nao.stopHeadScan() # for expressiveness
+
         # Precompute the gaze and point scores
         self.nao.startHeadScan() # for expressiveness
         self.gazescores = dict()
         self.pointscores = dict()
         self.waitForGazePointScores()
 
-        # Precompute the saliency scores
-        self.saliency_scores = self.precomputeSaliencyScores(0)
-        self.nao.stopHeadScan() # for expressiveness
 
     def recordRosbags(self, usernum):
         """ Start recording rosbags of selected topics. """
@@ -140,9 +142,9 @@ class InteractionController():
             'script_status',                    # from script
             'gazepoint_info',                   # from Kinect
             'face_info',                        # from Kinect
-            'human_behavior',                   # from Kinect
             'robot_behavior',                   # from program
             'timer_info',                       # from timer
+            'sysval_selections',                # from sysval calibration menu
             '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
 
@@ -154,6 +156,12 @@ class InteractionController():
         first 'point' GazePointInfo messages, but we expect them all 
         to come together as a pack.
         """
+        # Send message to initiate gazepoint score computation
+        self.script_status_pub.publish("ResetBlocks")
+        # This message may not work (it may be too early), in which 
+        # case the user will have to manually press the "Compute Scores"
+        # button on the kinect interface. Hopefully this ROS warning
+        # message will remind them.
         rospy.logwarn("Waiting for gaze and point scores.")
         while not (self.gazescores and self.pointscores):
             sleep(1.0)
@@ -325,11 +333,13 @@ class InteractionController():
 
         # Have the robot act out the list
         for action in action_list:
-            prompt = "Touch the " + str(action[2] + " block.")
+            prompt = "Select the " + str(action[2] + " block.")
             target = action[1]
             nvb_action = action[0]
             
             self.actOutReference(prompt, nvb_action, target)
+
+        self.script_status_pub.publish("SystemValidationComplete")
 
     def actOutReference(self, prompt, action, target):
         """
@@ -394,12 +404,14 @@ class InteractionController():
         self.objects.objdict[4].words = ['small green']
         self.objects.objdict[5].words = ['small blue']
         self.objects.objdict[6].words = ['small blue']
+        self.objects.objdict[7].words = ['small red']
 
 
         # Publish information about this participant
         self.script_status_pub.publish('userID:' + str(self.userID))
         self.script_status_pub.publish('nvb:' + str(self.nvb))
         self.script_status_pub.publish('interruption:' + str(self.interrupt))
+
 
     def shutdown(self):
         """ Shut down cleanly. """
@@ -428,15 +440,15 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        self.systemValidation() 
+        #self.systemValidation() 
 
         # Play HRI script
-        # self.nao.startIdle() TODO uncomment
-        # self.scriptreader.readScript(self.instructions)
-        # self.waitForAllMarkers()
-        # self.scriptreader.readScript(self.task1)
-        # self.waitForAllMarkers()
-        # self.scriptreader.readScript(self.task2)
+        self.nao.startIdle()
+        self.scriptreader.readScript(self.instructions)
+        self.waitForAllMarkers()
+        self.scriptreader.readScript(self.task1)
+        self.waitForAllMarkers()
+        self.scriptreader.readScript(self.task2)
 
         self.shutdown()
 

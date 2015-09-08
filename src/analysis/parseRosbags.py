@@ -12,12 +12,15 @@ import glob
 import re
 import rosbag
 import atexit
+import rospy
 
 
 class RosbagParser():
 	def __init__(self, userid=None, bagfname=None):
 
 		atexit.register(self.shutdown)
+
+		rospy.init_node('rosbag_parser')
 
 		rosbagdir = '../rosbags/'
 
@@ -64,8 +67,8 @@ class RosbagParser():
 
 
 		# Make sure we actually captured the data
-		#assert nvb is not None
-		#assert interrupt is not None
+		assert nvb is not None
+		assert interrupt is not None
 
 		datastring = str(nvb) + ',' + str(interrupt)
 		return datastring
@@ -108,22 +111,35 @@ class RosbagParser():
 		return datastring
 
 
-	def getBlockTouchesInSysval(self):
+	def getSysvalSelections(self, cond1objs, cond2objs, cond3objs):
 		""" 
-		Do people touch the correct block? And how quickly do they do so?
+		Do people select the correct block? And how quickly do they do so?
 
-		Measures accuracy of block touches for different NVB actions, as 
+		Measures accuracy of block selections for different NVB actions, as 
 		well as response times for *correct* block touches.
 
-		Returns a list of accuracies and a list of RTs by block.
+		Splits the analysis over three conditions:
+			condition 1: unambiguous reference
+			condition 2: ambiguous, far apart
+			condition 3: ambiguous, close together
+
+		Note: only stores the first selection in response to a robot behavior.
+
+		Arguments:
+		cond1objs -- list of IDs for blocks that fall into condition 1
+		cond2objs -- list of IDs for blocks that fall into condition 2
+		cond3objs -- list of IDs for blocks that fall into condition 3
+
+		Returns a list of lists of accuracies and a list of lists of RTs 
+		for each block by condition. I.e., 
+			[[cond1acc, cond2acc, cond3acc], [cond1rt, cond2rt, cond3rt]]
 		"""
-		print("----- System validation analysis -----")
 
 		# Possible actions of the robot
 		action_list = ['none','look','point','lookandpoint']
 
 		# Time window for correct response in seconds
-		t_window = 4.0
+		t_window = rospy.Duration(5)
 
 		# trackers
 		start_time = None
@@ -133,12 +149,17 @@ class RosbagParser():
 		# totals
 		total_actions = dict((act,0.0) for act in action_list)
 		accuracy = dict((act,0.0) for act in action_list)
-		responsetime = dict((act,0.0) for act in action_list)
+		responsetime = dict((act,rospy.Duration(0)) for act in action_list)
 
-		# For each object reference, find whether people touch the
+		# separate by condition
+		cond1 = {'total':dict(total_actions), 'accuracy':dict(accuracy), 'rt':dict(responsetime)}
+		cond2 = {'total':dict(total_actions), 'accuracy':dict(accuracy), 'rt':dict(responsetime)}
+		cond3 = {'total':dict(total_actions), 'accuracy':dict(accuracy), 'rt':dict(responsetime)}
+		
+		# For each object reference, find whether people selected the
 		# target object within t_window seconds of that reference.
 		for topic, msg, t in self.bag.read_messages(
-			topics=['human_behavior','robot_behavior','script_status']):
+			topics=['sysval_selections','robot_behavior','script_status']):
 			if topic == 'script_status':
 				if msg.data == 'HRIConstruction':
 					break
@@ -148,55 +169,83 @@ class RosbagParser():
 				start_time = t
 				target_obj = msg.object_id
 				nvb_action = msg.action
-				total_actions[nvb_action] += 1
-			elif (topic == 'human_behavior' 
+				if target_obj in cond1objs:
+					cond1['total'][nvb_action] += 1
+				elif target_obj in cond2objs:
+					cond2['total'][nvb_action] += 1
+				elif target_obj in cond3objs:
+					cond3['total'][nvb_action] += 1
+				else:
+					rospy.logwarn("System validation: ID not in condition list: " 
+						+ str(target_obj))
+			elif (topic == 'sysval_selections' 
 				and target_obj is not None
-				and t - start_time < t_window):
-				# This human behavior followed a robot behavior
+				and (t - start_time) < t_window):
+				# This selection followed a robot behavior
 				# within the specified time window
-				objlist = msg.target
-				effectorlist = msg.effector
-				assert len(objlist) > 0
-				assert len(objlist) == len(effectorlist)
-				for i in range(len(objlist)):
-					if effectorlist[i] == 'leftarm' or \
-						effectorlist[i] == 'rightarm':
-						touch_obj = objlist[i]
-						# If this is a successful touch, record the accuracy
-						# and RTs and then reset all trackers (so we only save
-						# the first such correct touch)
-						if touch_obj == target_obj:
-							assert nvb_action in action_list
-							accuracy[nvb_action] += 1
-							touch_time = t - start_time
-							responsetime[nvb_action] += touch_time
-							start_time = None
-							target_obj = None
-							nvb_action = None
-							break # leave the for loop
+				selection = int(msg.data)
+				if selection == target_obj:
+					assert nvb_action in action_list
+					if selection in cond1objs:
+						condlist = cond1
+					elif selection in cond2objs:
+						condlist = cond2
+					elif selection in cond3objs:
+						condlist = cond3
+					else:
+						rospy.logwarn("System validation: ID not in condition list: " 
+						+ str(selection))
+					condlist['accuracy'][nvb_action] += 1
+					touch_time = t - start_time
+					condlist['rt'][nvb_action] += touch_time
+					# A response was sensed, so reset all trackers
+					start_time = None
+					target_obj = None
+					nvb_action = None
 
-		print "Raw data:"
-		print "  total actions: " + str(total_actions)
-		print "  accuracy: " + str(accuracy)
-		print "  response times: " + str(responsetime)
+		# print "Raw data:"
+		# print "  cond1 total actions: " + str(cond1['total'])
+		# print "  cond1 accuracy: " + str(cond1['accuracy'])
+		# print "  cond1 RTs: " + str(cond1['rt'])
+		# print "  cond2 total actions: " + str(cond2['total'])
+		# print "  cond2 accuracy: " + str(cond2['accuracy'])
+		# print "  cond2 RTs: " + str(cond2['rt'])
+		# print "  cond3 total actions: " + str(cond3['total'])
+		# print "  cond3 accuracy: " + str(cond3['accuracy'])
+		# print "  cond3 RTs: " + str(cond3['rt'])
 
 		# Construct a data string that can be plugged into SPSS
 		# format: none, look, point, lookandpoint
-		accuracy_datastring = ''
-		rt_datastring = ''
+		accuracy_datastrings = [''] * 3
+		rt_datastrings = [''] * 3
 
 		# Calculate average accuracy and response time per NVB action
-		for action in action_list:
-			aveAcc = accuracy[action] / total_actions[action]
-			aveRt = responsetime[action] / total_actions[action]
-			accuracy_datastring += ', ' + str(aveAcc)
-			rt_datastring += ', ' + str(aveRt)
+		accuracyStringIdx = 0
+		rtStringIdx = 0
+		for c in [cond1, cond2, cond3]:
+			for action in action_list:
+				aveAcc = c['accuracy'][action] / c['total'][action]
+				aveRt = c['rt'][action] / c['total'][action]
+				accuracy_datastrings[accuracyStringIdx] += str(aveAcc) + ','
+				rt_datastrings[rtStringIdx] += str(aveRt.to_sec()) + ','
 
-		print "Calculated data:"
-		print "  average accuracy: " + accuracy_datastring
-		print "  average RTs: " + rt_datastring
+			# Delete the trailing comma
+			accuracy_datastrings[accuracyStringIdx] = \
+				accuracy_datastrings[accuracyStringIdx][:-1]
+			rt_datastrings[rtStringIdx] = rt_datastrings[rtStringIdx][:-1]
 
-		return [accuracy_datastring, rt_datastring]
+			accuracyStringIdx += 1
+			rtStringIdx += 1
+
+		# print "Calculated data:"
+		# print "  cond1 ave acc: " + accuracy_datastrings[0]
+		# print "  cond1 ave RTs: " + rt_datastrings[0]
+		# print "  cond2 ave acc: " + accuracy_datastrings[1]
+		# print "  cond2 ave RTs: " + rt_datastrings[1]
+		# print "  cond3 ave acc: " + accuracy_datastrings[2]
+		# print "  cond3 ave RTs: " + rt_datastrings[2]
+
+		return [accuracy_datastrings, rt_datastrings]
 
 
 	def printMessages(self, topicslist):
@@ -208,7 +257,7 @@ class RosbagParser():
 			print msg
 
 	def shutdown(self):
-		if self.bag:
+		if hasattr(self,'bag'):
 			self.bag.close()
 
 if __name__ == '__main__':
@@ -226,5 +275,5 @@ if __name__ == '__main__':
 
 	parser = RosbagParser(userid, bagfname)
 	print parser.getCondition()
-	print parser.getCompletionTimes()
-	print parser.getBlockTouchesInSysval()
+	#print parser.getCompletionTimes()
+	print parser.getSysvalSelections([1,2,3,4],[5,6],[0,7])

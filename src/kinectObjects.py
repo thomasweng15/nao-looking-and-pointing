@@ -5,8 +5,10 @@ from kinect2_pointing_recognition.msg import ObjectsInfo
 
 
 class KinectObjects():
-    def __init__(self):
+    def __init__(self, convertToNaoFrame=True):
         self.objdict = dict()
+
+        self.convert = convertToNaoFrame
 
         rospy.Subscriber('/objects_info', ObjectsInfo, self.objects_callback)
 
@@ -20,12 +22,18 @@ class KinectObjects():
 
         Arguments:
         objectMsg -- a ROS message of type ObjectsInfo
+        convertToNaoFrame -- bool for convert coordinates from Kinect to Nao frame,
+                            defaults to true
 
         Returns: none
         """
 
         obj_id = int(objectMsg.object_id)
-        obj_pos = self.convertCoords(objectMsg.pos) # convert from Kinect frame to Nao frame
+        if self.convert:
+            # convert from Kinect frame to Nao frame
+            obj_pos = self.convertCoords(objectMsg.pos)
+        else:
+            obj_pos = objectMsg.pos
 
         if obj_id in self.objdict:
             # if the object location has changed, update it

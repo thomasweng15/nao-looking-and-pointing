@@ -16,16 +16,16 @@
 	<node pkg="kinect2_pointing_recognition" name="kinect_parser" type="kinect_parser.py"/>
 
 	<!-- Start ROS listener server back to Windows -->
-	<node name="rosListenerServer" pkg="nao_looking_and_pointing" type="rosListenerServer.py" />
-
-	<!-- Start watching human behavior -->
-	<node name="human_behavior" pkg="nao_looking_and_pointing" type="senseHumanNVB.py"/>
+	<node name="rosListenerServer" pkg="nao_looking_and_pointing" type="rosListenerServer.py" output="screen" />
 
 	<!-- Start Nao sensing -->
-	<node name="nao_sensing" pkg="nao_looking_and_pointing" type="naoSensing.py" args="--pip $(arg ip) --pport $(arg port)" output="screen"/>
+	<node name="nao_sensing" pkg="nao_looking_and_pointing" type="naoSensing.py" args="--pip $(arg ip) --pport $(arg port)" output="screen" />
 
 	<!-- Start timer GUI -->
 	<node name="timer" pkg="nao_looking_and_pointing" type="timer.py" />
+
+	<!-- Start the system validation menu GUI -->
+	<node name="sysval_menu" pkg="nao_looking_and_pointing" type="sysval_menu.py" />
 
 	<!-- Start the node that runs the experiment -->
 	<node name="interaction_controller" pkg="nao_looking_and_pointing" type="hri_interaction.py" args="$(arg usernum) $(arg valscript) $(arg ip) $(arg port) $(arg usercam) $(arg nvb) $(arg interrupt) --script-instructions $(arg instructions) --script-task1 $(arg task1) --script-task2 $(arg task2)" required="true" output="screen"/>

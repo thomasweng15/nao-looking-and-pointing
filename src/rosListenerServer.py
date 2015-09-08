@@ -25,6 +25,7 @@ class RosListenerServer(WebSocket):
 		self.send("Test message")
 		self.send("Test message")
 
+
 	def received_message(self, m):
 		print "Received: " + str(m)
 

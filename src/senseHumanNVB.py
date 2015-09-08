@@ -12,11 +12,8 @@ from std_msgs.msg import String
 from kinect2_pointing_recognition.msg import SkeletonInfo, ObjectsInfo, FaceInfo, SpeechInfo
 from nao_looking_and_pointing.msg import HumanBehavior
 
-def dot_prod(a, b):
-	return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]
-
-def magn(a):
-	return math.sqrt(a[0]*a[0]+a[1]*a[1]+a[2]*a[2])
+def magn(a): 
+	return linalg.norm(a) # from numpy
 
 class ComputeAttention():
 	def __init__(self, max_people, point_aperture, look_aperture, touch_distance):
@@ -31,7 +28,7 @@ class ComputeAttention():
 
 		self.skeletons = Skeletons(max_people)
 		self.faces = Faces(max_people)
-		self.objects = KinectObjects()
+		self.objects = KinectObjects(convertToNaoFrame=False)
 		self.speech = Speech()
 
 		self.rate = rospy.Rate(5) # 5hz, or 5 per second
@@ -59,7 +56,7 @@ class ComputeAttention():
 		face_orientation = self.faces.face_orientation_vec(person_id)
 		head_to_obj = self.head_to_obj_vec(person_id, object_id)
 
-		dotprod = dot_prod(face_orientation, head_to_obj)
+		dotprod = dot(face_orientation, head_to_obj)
 		if dotprod != 0.0:
 			cosine = dotprod / (magn(face_orientation) * magn(head_to_obj))
 			angle = math.acos(cosine)
@@ -76,7 +73,7 @@ class ComputeAttention():
 
 		left_point = head_to_handtips[0]
 		left_handtip_to_obj = handtips_to_obj[0]
-		left_dotprod = dot_prod(left_point, left_handtip_to_obj)
+		left_dotprod = dot(left_point, left_handtip_to_obj)
 		left_point_vs_obj_angle = None
 
 		if left_dotprod != 0.0:
@@ -85,7 +82,7 @@ class ComputeAttention():
 
 		right_point = head_to_handtips[1]
 		right_handtip_to_obj = handtips_to_obj[1]
-		right_dotprod = dot_prod(right_point, right_handtip_to_obj)
+		right_dotprod = dot(right_point, right_handtip_to_obj)
 		right_point_vs_obj_angle = None
 
 		if right_dotprod != 0.0:
@@ -105,7 +102,11 @@ class ComputeAttention():
 		handtips_to_obj = self.handtip_to_obj_vecs(person_id, object_id)
 		if not any(handtips_to_obj[0]) and not any(handtips_to_obj[1]):
 			return [None, None]
-		return [magn(handtips_to_obj[0]), magn(handtips_to_obj[1])]
+		print(str(object_id) + " diff left: " + str(handtips_to_obj[0]))
+		print(str(object_id) + " magn left: " + str(magn(handtips_to_obj[0])))
+		l_touch = magn(handtips_to_obj[0]) < self.touch_dist
+		r_touch = magn(handtips_to_obj[1]) < self.touch_dist
+		return [l_touch, r_touch]
 
 	def run(self):
 		""" Watch for pointing and gaze actions, then publish them. """
@@ -113,6 +114,7 @@ class ComputeAttention():
 			# Track results
 			effectorlist = []
 			targetlist = []
+			touchlist = []
 
 			# get person id of the person in frame
 			person_id = None
@@ -120,7 +122,7 @@ class ComputeAttention():
 				if list(self.skeletons.array[i].head) != [0.0,0.0,0.0]:
 					person_id = i
 			if person_id == None:
-				rospy.loginfo("No one is detected in the frame.")
+				rospy.logwarn("No one is detected in the frame.")
 				time.sleep(1)
 				continue
 
@@ -134,7 +136,7 @@ class ComputeAttention():
 				if threshold and looking_angle < smallest_angle:
 					smallest_angle = looking_angle
 					head_target = j
-				rospy.loginfo("%s\t%s", threshold, looking_angle)
+				rospy.loginfo("%d:\t%s\t%s", j, threshold, looking_angle)
 			if head_target:
 				effectorlist.append("head")
 				targetlist.append(head_target)
@@ -146,9 +148,10 @@ class ComputeAttention():
 			r_target_object = None
 			l_smallest_angle = 1000
 			l_target_object = None
+			l_touch = None
+			r_touch = None
 			for j in range(0, len(self.objects.objdict)):
 				pointing_angles = self.point_vs_obj_angles(person_id, j)
-				print pointing_angles
 				pointing_threshold = [angle is not None and angle < self.point_aptr / 2 for angle in pointing_angles]
 				if pointing_threshold[0] and pointing_angles[0] < l_smallest_angle:
 					l_smallest_angle = pointing_angles[0]
@@ -156,16 +159,23 @@ class ComputeAttention():
 				if pointing_threshold[1] and pointing_angles[1] < r_smallest_angle:
 					r_smallest_angle = pointing_angles[1]
 					r_target_object = j
-				rospy.loginfo("point threshold: %s\npoint angle: %s", 
-					pointing_threshold, pointing_angles)
+				rospy.logdebug("point threshold for object %d [left, right]: %s", 
+					j, pointing_threshold)
+				rospy.logdebug("point angle for object %d [left, right]: %s",
+					j, pointing_angles)
+				l_touch, r_touch = self.is_touching(person_id, j)
 			if r_target_object:
 				effectorlist.append("rightarm")
 				targetlist.append(r_target_object)
+				touchlist.append(r_touch)
 			if l_target_object:
 				effectorlist.append("leftarm")
 				targetlist.append(l_target_object)
+				touchlist.append(l_touch)
 			rospy.loginfo("Right arm pointing at %s", r_target_object)
 			rospy.loginfo("Left arm pointing at %s", l_target_object)
+			rospy.loginfo("Touching? left:%s, right:%s", l_touch, r_touch)
+			
 
 			rospy.loginfo("-----------")
 
@@ -175,6 +185,7 @@ class ComputeAttention():
 				behaviorMsg = HumanBehavior()
 				behaviorMsg.effector = effectorlist
 				behaviorMsg.target = targetlist
+				behaviorMsg.isTouching = touchlist
 
 				self.behaviorpub.publish(behaviorMsg)
 
