@@ -32,6 +32,22 @@ class NVBModel():
         self.POINT = "point"
         self.GAZEANDPOINT = "lookandpoint"
 
+        # Specific color threshold values for saliency 
+        # calculation, since the colors the userview camera
+        # sees are different than the colors the Kinect sees.
+        # This is a dict with key as object ID, value as a
+        # list of [lower, upper] where lower and upper are 
+        # RGB triples.
+        self.salObjectColors = { \
+            0:[[134, 27, 0],[169, 45, 22]],\
+            1:[[152, 43, 0],[218, 105, 32]],\
+            2:[[186, 117, 0],[208, 145, 30]],\
+            3:[[111, 101, 0],[172, 160, 41]],\
+            4:[[35, 64, 0],[49, 91, 19]],\
+            5:[[44, 59, 41],[82, 105, 99]],\
+            6:[[44, 59, 41],[82, 105, 99]],\
+            7:[[134, 27, 0],[169, 45, 22]] }
+
     def calculateNVBForRef(self, saliency, target_id, object_list, 
         spoken_words, gazescores, pointscores):
         """
@@ -170,10 +186,12 @@ class NVBModel():
         user_view_img = cv2.imread(img_fname)
 
         salscores = dict()
-        for idnum, obj in object_list.iteritems():
+        for idnum in object_list.keys():
             # Find object position in rgb image by color
             obj_pos_array = self.getObjectPixelPosition(
-                user_view_img, obj.color_upper, obj.color_lower)
+                user_view_img, 
+                self.salObjectColors[idnum][1], 
+                self.salObjectColors[idnum][0])
 
             salience = saliency_detector.identifySaliencyAtLocation(
                 salmap, obj_pos_array)
