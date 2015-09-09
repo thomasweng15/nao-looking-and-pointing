@@ -11,8 +11,8 @@ import numpy as np
 import saliency_detector
 from matplotlib import pyplot as plt
 
-DEBUG = False
-DISPLAYIMAGES = False
+DEBUG = True
+DISPLAYIMAGES = True
 
 class NVBModel():
     """ The nonverbal behavior model. """

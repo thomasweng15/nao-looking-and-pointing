@@ -119,15 +119,19 @@ class NaoGestures():
             self.ttsProxy.post.say(text)
 
     def startIdle(self):
+        print("NaoGestures: start idle.")
         self.idle.set()
 
     def stopIdle(self):
+        print("NaoGestures: stop idle.")
         self.idle.clear()
 
     def startHeadScan(self):
+        print("NaoGestures: start headscan.")
         self.headscan.set()
 
     def stopHeadScan(self):
+        print("NaoGestures: stop headscan.")
         self.headscan.clear()
 
     def doIdleBehaviors(self):
@@ -243,7 +247,7 @@ class NaoGestures():
         # Move arm and head to gesture
         self.moveArm(pointingArm, IKTarget, blocking)
         self.moveHead(pitch, yaw, blocking)
-        time.sleep(3)
+        time.sleep(2)
 
         # Move arm and head back
         self.moveArm(pointingArm, initArmPosition, blocking)

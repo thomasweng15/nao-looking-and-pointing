@@ -13,3 +13,8 @@ class Lego():
         self.color_upper = color_upper
         self.color_lower = color_lower
         self.words = descriptor_words
+
+class Bin():
+    """ A bin object, where Legos get placed. """
+    def __init__(self, location = None):
+        self.loc = location

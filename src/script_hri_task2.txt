@@ -4,7 +4,9 @@ Okay. I will give you a new set of instructions. Please listen to all of my inst
 [1]
 [instructions 2 start]
 
-# Task 2 here
+<0 small red> Put one small red block side by side <7 small red> with the other small red block <1 large orange> on top of the large orange block. <5 small blue> Place one of the small blue blocks crosswise across the red blocks. Put that arrangement in the bin on your right.
+
+<2 small yellow> Stack the small yellow block <6 small blue> and one of the small blue blocks <3 large lime> underneath the lime block. <4 small green> Put the small green block on top of the lime block. Place that arrangement in the bin to your right.
 
 [interruption start] # if interruption condition, wait for head press
 
@@ -13,9 +15,10 @@ Okay. I will give you a new set of instructions. Please listen to all of my inst
 
 [1]
 
-That concludes the instructions. When I tell you to begin, press the start button on the timer to your right, then sort the blocks according to my instructions. Press the stop button when you are finished. Begin now.
+That concludes the instructions. [timer start request] Press the start button on the timer and begin now. [timer stop request] Press stop when you are finished.
 
 [instructions 2 stop]
+
 [timer stop]
 
 Great job! This experiment is over. Thank you for playing with me. You can let the experimenter know that you are finished now.

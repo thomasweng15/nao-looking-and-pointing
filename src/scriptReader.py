@@ -40,6 +40,8 @@ class ScriptReader():
             'touch',Touch,self.touchCallback)
         self.signal_listener = rospy.Subscriber(
             'timer_info',Timer,self.timerCallback)
+        self.sysval_listener = rospy.Subscriber(
+            'sysval_selections',String,self.sysvalCallback)
 
         # Initialize robot controller
         self.nao = robot
@@ -55,6 +57,7 @@ class ScriptReader():
         self.timer_start = False
         self.timer_stop = False
         self.timer_reset = False
+        self.sysval_done = False
 
 
     def readScript(self, script_filename):
@@ -69,7 +72,7 @@ class ScriptReader():
 
         Returns: none (but causes robot to speak)
         """
-        rospy.loginfo("Beginning to read script")
+        rospy.loginfo("Beginning to read script " + script_filename)
 
         self.script = open(script_filename, 'r')
 
@@ -177,9 +180,6 @@ class ScriptReader():
         """
         self.bumper_touched = False
         self.head_touched = False
-        self.timer_start = False
-        self.timer_stop = False
-        self.timer_reset = False
 
         rospy.loginfo("Script command: " + commandstring)
 
@@ -191,6 +191,9 @@ class ScriptReader():
             # Listen for tactile head press
             while not self.head_touched:
                 sleep(0.5)
+        elif commandstring == 'sysval done':
+            while not self.sysval_done:
+                sleep(0.5)
         elif commandstring == 'timer start':
             while not self.timer_start:
                 sleep(0.5)
@@ -198,9 +201,15 @@ class ScriptReader():
             while not self.timer_stop:
                 sleep(0.5)
         elif commandstring == 'timer reset':
-            self.script_status.publish("TimerReset")
             while not self.timer_reset:
                 sleep(0.5)
+        elif commandstring == 'timer start request':
+            self.timer_start = False
+        elif commandstring == 'timer stop request':
+            self.timer_stop = False
+        elif commandstring == 'timer reset request':
+            self.script_status.publish("TimerReset")
+            self.timer_reset = False
         elif commandstring == 'interruption start':
             if self.interrupt:
                 # wait for head press to signal interruption start
@@ -258,3 +267,7 @@ class ScriptReader():
         elif data.event == 'reset':
             self.timer_reset = True
             rospy.loginfo("Timer reset signal")
+
+    def sysvalCallback(self, data):
+        if data.data == 'done':
+            self.sysval_done = True

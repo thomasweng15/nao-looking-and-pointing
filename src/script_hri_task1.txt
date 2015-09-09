@@ -7,19 +7,27 @@ Alright, I will give you the first set of instructions. Remember, this is a test
 
 # Task 1 here
 
-<0 small red block> Put the small red block <3 large lime> on top of the large lime block.
+<0 small red> Put one of the small red blocks <3 large lime> on top of the large lime block. Then, <7 small red> stack the second small red block on top of the first one. <5 small blue> Put one of the small blue blocks on the lime block as well. Then put the whole arrangement <9 right bin> in the bin on your right.
 
 [1]
 
-That concludes the instructions. Press the start button on the timer and begin now. Press stop when you are finished.
+<6 small blue> After that, place a small blue block  <2 small yellow> and a small yellow block side by side <1 large orange> on top of the large orange block. <4 small green> Put the small green block on top of the yellow block. Put that arrangement <8 left bin> in the bin on your left.
+
+[1]
+
+
+That concludes the instructions. [timer start request] Press the start button on the timer and begin now. [timer stop request] Press stop when you are finished.
 
 [instructions 1 stop]
+
+
 [timer stop]
 
-Good job. That was fun, right? Let's do it again. Please pull all of the blocks out of the bins, take them apart, and put them on the table in front of you. For me to see the blocks, they have to be below the line of tape on the table and the tags have to be facing me.
+Good job. That was fun, right? Let's do it again. Please pull all of the blocks out of the bins, take them apart, and put them on the table in front of you. For me to see the blocks, they have to be on the blue fabric on the table and the tags have to be facing me.
 
-[5] # TODO add signal from Kinect that all fiducials have been detected?
+[5]
 
+[timer reset request]
 When you're done placing the blocks on the table, press the reset button on the timer to continue.
 
 [timer reset]

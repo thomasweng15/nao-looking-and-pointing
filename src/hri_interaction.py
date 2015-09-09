@@ -26,6 +26,7 @@ import ast
 import numpy as np
 from time import sleep, time
 from kinectObjects import KinectObjects
+from lego import Bin
 from naoGestures import NaoGestures
 from scriptReader import ScriptReader
 from nvbModel import NVBModel
@@ -123,14 +124,14 @@ class InteractionController():
         # self.objects.createFakeObjects()
 
         # Precompute the saliency scores
-        self.saliency_scores = self.precomputeSaliencyScores(0)
-        self.nao.stopHeadScan() # for expressiveness
+        self.nao.startHeadScan() # for expressiveness
+        self.saliency_scores = self.precomputeSaliencyScores(int(cameraID))
 
         # Precompute the gaze and point scores
-        self.nao.startHeadScan() # for expressiveness
         self.gazescores = dict()
         self.pointscores = dict()
         self.waitForGazePointScores()
+        self.nao.stopHeadScan() # for expressiveness
 
 
     def recordRosbags(self, usernum):
@@ -157,7 +158,7 @@ class InteractionController():
         to come together as a pack.
         """
         # Send message to initiate gazepoint score computation
-        self.script_status_pub.publish("ResetBlocks")
+        #self.script_status_pub.publish("ResetBlocks")
         # This message may not work (it may be too early), in which 
         # case the user will have to manually press the "Compute Scores"
         # button on the kinect interface. Hopefully this ROS warning
@@ -205,6 +206,7 @@ class InteractionController():
         cam = cv2.VideoCapture(cameraID)
 
         # Grab user view snapshot from camera for saliency detection
+        cam.read() # a hack, the second image seems to be better
         s,self.user_view_img = cam.read()
         user_view_fname = dirpath + 'results/p' + str(self.userID) \
             + '_userview.jpg'
@@ -257,17 +259,22 @@ class InteractionController():
         target_loc = self.objects.objdict[target_id].loc
 
         # Calculate the correct nonverbal behavior to indicate the target
-        action_type = self.findNVBForRef(target_id, words_spoken)
-        if not self.nvb:
-            action_type = 'none'
-        rospy.loginfo("Proposed action: %s" % action_type)
+        assert self.numObj < 9
+        if (self.nvb and                       # NVB is expected, and
+            target_id == 8 or target_id == 9): # target obj is a bin
+            action_type = 'lookandpoint'
+        else:
+            action_type = self.findNVBForRef(target_id, words_spoken)
+            if not self.nvb:
+                action_type = 'none'
+            rospy.loginfo("Proposed action: %s" % action_type)
 
         # Publish message about robot's behavior
         self.robot_behavior_pub.publish(action=action_type, 
                                         object_id=target_id)
 
         # Send action command to the robot
-        self.nao.doGesture(action_type, target_loc)
+        self.nao.doGesture(action_type, target_loc, True)
 
     def scriptStatusCallback(self, msg):
         """ Listen for script status. """
@@ -290,11 +297,21 @@ class InteractionController():
     def waitForAllMarkers(self):
         rospy.loginfo("Markers visible: " + str(self.markersVisible))
         
+        markerTimer = time()
         if len(self.markersVisible) is not self.numObj:
             rospy.logwarn("Waiting for all markers to be visible.")
             self.nao.startHeadScan()
         while len(self.markersVisible) is not self.numObj:
             sleep(0.5)
+            # If more than 15 seconds have passed, verbally prompt
+            # the user to adjust the markers
+            if (time() - markerTimer) > 15:
+                print "Reading marker prompt"
+                self.nao.speak("I am waiting for all of the blocks to be "
+                                "visible to me. Please spread the blocks "
+                                "apart and make sure all of the tags are "
+                                "facing me.")
+                markerTimer = time()
 
         rospy.loginfo("Markers visible: " + str(self.markersVisible))
         self.nao.stopHeadScan()
@@ -313,7 +330,8 @@ class InteractionController():
                   + 'results/p'+str(self.userID) \
                   + '_correctactionlist.txt'
         f = open(outfile,'w')
-        for obj in self.objects.objdict.values():
+        nonBinObjects = {k:self.objects.objdict[k] for k in range(0,self.numObj)}
+        for obj in nonBinObjects.values():
             idnum = obj.idnum
             assert len(obj.words) > 0
             words = obj.words[0]
@@ -322,6 +340,7 @@ class InteractionController():
             for act in ['none','look','point','lookandpoint']:
                 action_list.append((act, idnum, words))
         f.close()
+        return # TODO remove
 
         # Randomize the list
         random.shuffle(action_list)
@@ -340,6 +359,7 @@ class InteractionController():
             self.actOutReference(prompt, nvb_action, target)
 
         self.script_status_pub.publish("SystemValidationComplete")
+
 
     def actOutReference(self, prompt, action, target):
         """
@@ -384,8 +404,9 @@ class InteractionController():
         words_list = re.findall(r"[\w']+",words_spoken)
         
         # Call NVBModel function that calculates saliency
+        nonBinObjects = {k: self.objects.objdict[k] for k in range(self.numObj)}
         nvb = self.model.calculateNVBForRef(
-            self.saliency_scores, target_id, self.objects.objdict, words_list,
+            self.saliency_scores, target_id, nonBinObjects, words_list,
             self.gazescores[target_id], self.pointscores[target_id])
         return nvb
 
@@ -405,6 +426,20 @@ class InteractionController():
         self.objects.objdict[5].words = ['small blue']
         self.objects.objdict[6].words = ['small blue']
         self.objects.objdict[7].words = ['small red']
+
+        # Assign left and right bins to object dict as well
+        self.objects.objdict[8] = Bin()
+        self.objects.objdict[9] = Bin()
+        rightBinKinectCoord = [0.5157492756843567, \
+                             -0.7387366890907288, \
+                              1.5461519956588745]
+        leftBinKinectCoord = [-0.17079749703407288, \
+                              -0.7140763998031616, \
+                               1.5642540454864502]
+        self.objects.objdict[8].loc = \
+            self.objects.convertCoords(leftBinKinectCoord)
+        self.objects.objdict[9].loc = \
+            self.objects.convertCoords(rightBinKinectCoord)
 
 
         # Publish information about this participant
@@ -440,15 +475,15 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        #self.systemValidation() 
+        self.systemValidation() 
 
         # Play HRI script
-        self.nao.startIdle()
-        self.scriptreader.readScript(self.instructions)
-        self.waitForAllMarkers()
-        self.scriptreader.readScript(self.task1)
-        self.waitForAllMarkers()
-        self.scriptreader.readScript(self.task2)
+        #self.nao.startIdle()
+        #self.scriptreader.readScript(self.instructions)
+        # self.waitForAllMarkers()
+        # self.scriptreader.readScript(self.task1)
+        # self.waitForAllMarkers()
+        # self.scriptreader.readScript(self.task2)
 
         self.shutdown()
 

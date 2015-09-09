@@ -85,8 +85,8 @@ enableButtons = False
 curTime = 0.0
 
 root = Tk()
-root.geometry("1080x800")
-#root.attributes('-fullscreen',True)
+#root.geometry("800x800")
+root.attributes('-fullscreen',True)
 root.title('Timer')
 
 # ROS publisher

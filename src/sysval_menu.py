@@ -27,6 +27,7 @@ def statusCallback(msg):
 			button['state'] = DISABLED
 
 def close():
+	pub.publish('done')
 	root.destroy()
 
 root = Tk()
