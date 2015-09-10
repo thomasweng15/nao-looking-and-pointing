@@ -19,12 +19,12 @@ class NVBModel():
 
     def __init__(self):
         # Parameters 
-        self.w_saliency = 0.5
-        self.w_verbal = 2.3
+        self.w_saliency = 0.25
+        self.w_verbal = 1.07
         self.w_gaze = 0.91
         self.w_point = 1.64
 
-        self.certainty_threshold = 1.75 # empirically determined
+        self.certainty_threshold = 2.0 # empirically determined
 
         # "Global" variables - for NaoGestures.doGesture()
         self.VERBAL = "none"
@@ -96,7 +96,7 @@ class NVBModel():
 
         # Calculate gaze score with the robot looking at target object
         #gaze_scores = self.calculateGazeScores(target_id, object_list)
-        gaze_scores_raw = [v/3.25 for v in gazescores] #value of gaze is 1/5 that of point
+        gaze_scores_raw = [v for v in gazescores] #value of gaze is less than point
         # Normalize
         g_factor = 1.0/max(gaze_scores_raw)
         gaze_scores = [v*g_factor for v in gaze_scores_raw]

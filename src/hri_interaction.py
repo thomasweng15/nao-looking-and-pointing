@@ -518,8 +518,8 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        #self.systemValidation() 
-
+        self.systemValidation() 
+        return
         # Play HRI instructions
         self.nao.startIdle()
         self.scriptreader.readScript(self.instructions)
