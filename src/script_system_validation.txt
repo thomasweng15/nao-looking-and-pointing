@@ -6,11 +6,15 @@ Today, you will be helping me build and sort Legos.  You can see the Legos in fr
 
 [1]
 
-First, I need to make sure you can understand my instructions. I will name an object, and your job is to identify that object. There is a computer with a touch screen to your right. When I name an object, touch the button corresponding to that object as quickly and accurately as you can.
+First, I need to make sure you can understand my instructions. I will name a block, and your job is to identify that block. There is a computer with a touch screen to your right. When I name a block, touch the button corresponding to that object as quickly and accurately as you can.
 
 [0.5]
 
-I will move quickly. If you are unsure which object I mean, just pick one as quickly and accurately as possible.
+Notice that there are two red blocks and two blue blocks on the table. For this calibration, I might look or point at a block to clarify which one I mean. On the computer screen, the words left and right refer to your own point of view. For example, the blue block on the right is the one to YOUR right.
+
+[0.5]
+
+This calibration goes quickly. If you are unsure which block I mean, just pick one as quickly and accurately as possible.
 
 [1]
 

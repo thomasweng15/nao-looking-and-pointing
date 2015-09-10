@@ -222,6 +222,10 @@ class ScriptReader():
                 # wait for head press to signal interruption stop
                 while not self.head_touched:
                     sleep(0.5)
+        elif commandstring == 'task 1':
+            self.script_status.publish('Task1')
+        elif commandstring == 'task 2':
+            self.script_status.publish('Task2')
         elif (commandstring == 'instructions 1 start' 
                 or commandstring == 'instructions 2 start'):
             # publish status

@@ -12,21 +12,21 @@ import saliency_detector
 from matplotlib import pyplot as plt
 
 DEBUG = True
-DISPLAYIMAGES = True
+DISPLAYIMAGES = False
 
 class NVBModel():
     """ The nonverbal behavior model. """
 
     def __init__(self):
-        # Parameters - TODO: Define these
-        self.w_saliency = 1
-        self.w_verbal = 1
-        self.w_gaze = 1
-        self.w_point = 1
+        # Parameters 
+        self.w_saliency = 0.5
+        self.w_verbal = 2.3
+        self.w_gaze = 0.91
+        self.w_point = 1.64
 
-        self.certainty_threshold = 0.75
+        self.certainty_threshold = 1.75 # empirically determined
 
-        # Global variables - for NaoGestures.doGesture()
+        # "Global" variables - for NaoGestures.doGesture()
         self.VERBAL = "none"
         self.GAZE = "look"
         self.POINT = "point"
@@ -68,33 +68,51 @@ class NVBModel():
         Returns: a string representing the best nonverbal behavior (see NaoGestures for options)
         """
 
-        if DEBUG: print "NVB model: calculate NVB for ref"
+        if DEBUG: print "NVB model: calculate NVB for ref with spoken words " + str(spoken_words)
 
         # Check if saliency scores have been precomputed. If not,
         # calculate the saliency scores
         if isinstance(saliency, dict):
-            saliency_scores = saliency
+            saliency_scores_raw = saliency
         else:
-            saliency_scores = self.calculateSaliencyScores(saliency, object_list)
+            saliency_scores_raw = self.calculateSaliencyScores(saliency, object_list)
+        # Normalize
+        s_factor = 1.0/max(saliency_scores_raw.itervalues())
+        saliency_scores = {k: v*s_factor for k,v in saliency_scores_raw.iteritems()}
+        # Weight
         for key, value in saliency_scores.iteritems():
             saliency_scores[key] = value * self.w_saliency
         if DEBUG: print "saliency scores: " + str(saliency_scores)
 
         # Calculate verbal reference score
-        verbal_scores = self.calculateVerbalScores(spoken_words, object_list)
+        verbal_scores_raw = self.calculateVerbalScores(spoken_words, object_list)
+        # Normalize
+        v_factor = 1.0/max(verbal_scores_raw.itervalues())
+        verbal_scores = {k: v*v_factor for k,v in verbal_scores_raw.iteritems()}
+        # Weight
         for key, value in verbal_scores.iteritems():
             verbal_scores[key] = value * self.w_verbal
         if DEBUG: print "verbal scores: " + str(verbal_scores)
 
         # Calculate gaze score with the robot looking at target object
         #gaze_scores = self.calculateGazeScores(target_id, object_list)
-        gaze_scores = gazescores
-        gaze_scores = [val * self.w_gaze for val in gaze_scores]
+        gaze_scores_raw = [v/3.25 for v in gazescores] #value of gaze is 1/5 that of point
+        # Normalize
+        g_factor = 1.0/max(gaze_scores_raw)
+        gaze_scores = [v*g_factor for v in gaze_scores_raw]
+        # Weight
+        gaze_scores = [v*self.w_gaze for v in gaze_scores]
+        if DEBUG: print "gaze scores: " + str(gaze_scores)
 
         # Calculate pointing score with the robot pointing to target object
         #point_scores = self.calculatePointScores(target_id, object_list)
-        point_scores = pointscores
-        point_scores = [val * self.w_point for val in point_scores]
+        point_scores_raw = pointscores
+        # Normalize
+        p_factor = 1.0/max(point_scores_raw)
+        point_scores = [v*p_factor for v in point_scores_raw]
+        # Weight
+        point_scores = [v*self.w_point for v in point_scores]
+        if DEBUG: print "point scores: " + str(point_scores)
 
         # Calculate likelihood scores for all objects given current scene and different combinations
         # of available nonverbal behaviors (verbal only, verbal+gaze, verbal+gesture, verbal+gaze+gesture)
@@ -103,8 +121,6 @@ class NVBModel():
         score_verbal_point = dict()
         score_verbal_gaze_point = dict()
 
-        if DEBUG:
-            print "gaze scores: " + str(gaze_scores)
         
         for idnum in object_list:
             score_verbal[idnum] = saliency_scores[idnum] + verbal_scores[idnum]
@@ -185,6 +201,7 @@ class NVBModel():
 
         user_view_img = cv2.imread(img_fname)
 
+        print('...object list: ' + str(object_list.keys()))
         salscores = dict()
         for idnum in object_list.keys():
             # Find object position in rgb image by color
@@ -217,9 +234,10 @@ class NVBModel():
         assert isinstance(spoken_words, list)
 
         for idnum, obj in object_list.iteritems():
-            score = 0
-            for w in obj.words:
-                if w in spoken_words:
+            objectwords = obj.words[0]
+            score = 0.0
+            for w in spoken_words:
+                if w in objectwords:
                     score = score + 1
             total = float(score) / len(spoken_words)
             verbalscores[idnum] = total

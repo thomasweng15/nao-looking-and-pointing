@@ -102,6 +102,9 @@ class InteractionController():
 
         self.numObj = nObjects
 
+        self.cameraID = int(cameraID)
+        self.viewiternum = 0 # number of participant view images
+
         rospy.loginfo('Creating a NaoGestures object')
         # Nao robot
         self.nao = NaoGestures(robotIP, robotPort)
@@ -125,12 +128,12 @@ class InteractionController():
 
         # Precompute the saliency scores
         self.nao.startHeadScan() # for expressiveness
-        self.saliency_scores = self.precomputeSaliencyScores(int(cameraID))
+        self.saliency_scores = self.precomputeSaliencyScores(self.cameraID)
 
         # Precompute the gaze and point scores
         self.gazescores = dict()
         self.pointscores = dict()
-        self.waitForGazePointScores()
+        self.waitForGazePointScores(False)
         self.nao.stopHeadScan() # for expressiveness
 
 
@@ -149,16 +152,19 @@ class InteractionController():
             '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
 
-    def waitForGazePointScores(self):
+    def waitForGazePointScores(self, auto=True):
         """ 
         Wait for the GazePointInfo messages to arrive. 
 
         Technically this function only waits for the first 'gaze' and
         first 'point' GazePointInfo messages, but we expect them all 
         to come together as a pack.
+
+        Arguments:
+        auto -- Automatically request gaze and point scores from Kinect
         """
         # Send message to initiate gazepoint score computation
-        #self.script_status_pub.publish("ResetBlocks")
+        if auto: self.script_status_pub.publish("ResetBlocks")
         # This message may not work (it may be too early), in which 
         # case the user will have to manually press the "Compute Scores"
         # button on the kinect interface. Hopefully this ROS warning
@@ -200,6 +206,9 @@ class InteractionController():
         """
 
         rospy.logwarn('Precomputing saliency scores. This might take a moment.')
+        rospy.loginfo("Waiting for all objects to be seen by Kinect...")
+        while not len(self.objects.objdict) == self.numObj:
+            sleep(1.0)
 
         # Initialize camera
         rospy.loginfo('Connecting to participant view camera.')
@@ -209,19 +218,22 @@ class InteractionController():
         cam.read() # a hack, the second image seems to be better
         s,self.user_view_img = cam.read()
         user_view_fname = dirpath + 'results/p' + str(self.userID) \
-            + '_userview.jpg'
+            + '_userview' + str(self.viewiternum) + '.jpg'
         if not s:
             raise IOError("Could not take camera image!")
         else:
             # Save camera image
             cv2.imwrite(user_view_fname,self.user_view_img)
+            self.viewiternum += 1
 
         # Close camera
         cam.release()
 
         # Call saliency score computing function from NVB model
+        nonBinObjs = self.getNonBinObjects()
+        assert nonBinObjs # not empty
         saliency_scores = self.model.calculateSaliencyScores(
-            user_view_fname, self.objects.objdict)
+            user_view_fname, nonBinObjs)
 
         rospy.loginfo('Saved participant view to ' + user_view_fname)
 
@@ -286,7 +298,10 @@ class InteractionController():
             self.nao.startIdle()
         elif status == "InterruptionStop":
             self.nao.startIdle()
-            
+        # Recalculate saliency and gaze and point scores when blocks
+        # are re-set.
+        # elif status == "ResetBlocks":
+        #     self.precomputeNVBInfo()
 
     def markerInfoCallback(self, msg):
         """ Update the list of visible fiducial markers. """
@@ -316,6 +331,35 @@ class InteractionController():
         rospy.loginfo("Markers visible: " + str(self.markersVisible))
         self.nao.stopHeadScan()
 
+    def precomputeNVBInfo(self):
+        """
+        Wait for markers, precompute saliency, then precompute 
+        gaze and point scores.
+        """
+        # Wait for all markers to be available.
+        self.waitForAllMarkers()
+
+        self.nao.stopIdle()
+        self.nao.startHeadScan() # for expressiveness
+        self.nao.speak("Please wait while I review the new block layout.", True)
+
+        # Saliency
+        self.saliency_scores = self.precomputeSaliencyScores(self.cameraID)
+
+        # Gaze and point
+        self.gazescores = dict()
+        self.pointscores = dict()
+        self.waitForGazePointScores()
+        self.nao.stopHeadScan() # for expressiveness
+
+        self.nao.speak("Alright, I am done scanning the new block layout.", True)
+
+    def getNonBinObjects(self):
+        nonbin = dict()
+        for k,v in self.objects.objdict.iteritems():
+            if not isinstance(v, Bin):
+                nonbin[k] = v
+        return nonbin
 
     def systemValidation(self):
         """
@@ -330,7 +374,7 @@ class InteractionController():
                   + 'results/p'+str(self.userID) \
                   + '_correctactionlist.txt'
         f = open(outfile,'w')
-        nonBinObjects = {k:self.objects.objdict[k] for k in range(0,self.numObj)}
+        nonBinObjects = self.getNonBinObjects()
         for obj in nonBinObjects.values():
             idnum = obj.idnum
             assert len(obj.words) > 0
@@ -340,7 +384,6 @@ class InteractionController():
             for act in ['none','look','point','lookandpoint']:
                 action_list.append((act, idnum, words))
         f.close()
-        return # TODO remove
 
         # Randomize the list
         random.shuffle(action_list)
@@ -404,7 +447,7 @@ class InteractionController():
         words_list = re.findall(r"[\w']+",words_spoken)
         
         # Call NVBModel function that calculates saliency
-        nonBinObjects = {k: self.objects.objdict[k] for k in range(self.numObj)}
+        nonBinObjects = self.getNonBinObjects()
         nvb = self.model.calculateNVBForRef(
             self.saliency_scores, target_id, nonBinObjects, words_list,
             self.gazescores[target_id], self.pointscores[target_id])
@@ -475,15 +518,14 @@ class InteractionController():
         self.startup()
 
         # Play system validation portion of experiment.
-        self.systemValidation() 
+        #self.systemValidation() 
 
-        # Play HRI script
-        #self.nao.startIdle()
-        #self.scriptreader.readScript(self.instructions)
-        # self.waitForAllMarkers()
-        # self.scriptreader.readScript(self.task1)
-        # self.waitForAllMarkers()
-        # self.scriptreader.readScript(self.task2)
+        # Play HRI instructions
+        self.nao.startIdle()
+        self.scriptreader.readScript(self.instructions)
+        self.scriptreader.readScript(self.task1)
+        self.precomputeNVBInfo()
+        self.scriptreader.readScript(self.task2)
 
         self.shutdown()
 
