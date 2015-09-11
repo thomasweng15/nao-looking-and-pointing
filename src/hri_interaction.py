@@ -207,7 +207,7 @@ class InteractionController():
 
         rospy.logwarn('Precomputing saliency scores. This might take a moment.')
         rospy.loginfo("Waiting for all objects to be seen by Kinect...")
-        while not len(self.objects.objdict) == self.numObj:
+        while not len(self.objects.objdict) >= self.numObj:
             sleep(1.0)
 
         # Initialize camera
@@ -519,7 +519,7 @@ class InteractionController():
 
         # Play system validation portion of experiment.
         self.systemValidation() 
-        return
+
         # Play HRI instructions
         self.nao.startIdle()
         self.scriptreader.readScript(self.instructions)

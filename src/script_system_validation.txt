@@ -10,7 +10,7 @@ First, I need to make sure you can understand my instructions. I will name a blo
 
 [0.5]
 
-Notice that there are two red blocks and two blue blocks on the table. For this calibration, I might look or point at a block to clarify which one I mean. On the computer screen, the words left and right refer to your own point of view. For example, the blue block on the right is the one to YOUR right.
+Notice that there are two red blocks and two blue blocks on the table. For this calibration, I might look or point at a block to clarify which one I mean.
 
 [0.5]
 

@@ -31,9 +31,9 @@ def close():
 	root.destroy()
 
 root = Tk()
-root.geometry("500x800")
+root.geometry("1400x800")
 root.title('Calibration Task')
-root.config(cursor='none') # no cursor
+#root.config(cursor='none') # no cursor
 
 
 # ROS publisher
@@ -47,33 +47,66 @@ naolistener = rospy.Subscriber('/script_status', String, statusCallback)
 spacerFrame = Frame(root, width=500, height=40)
 
 # Selection buttons
-helvetica36 = tkFont.Font(family='Helvetica', size=36, weight='bold')
-red1Button = Button(root, bg='red', text='red block (my right)', 
-	font=helvetica36, command= lambda: buttonPressCallback(0), state=DISABLED)
-red2Button = Button(root, bg='red', text='red block (my left)', 
-	font=helvetica36, command= lambda: buttonPressCallback(7), state=DISABLED)
-orangeButton = Button(root, bg='orange', text='orange block', 
-	font=helvetica36, command= lambda: buttonPressCallback(1), state=DISABLED)
-yellowButton = Button(root, bg='yellow', text='yellow block', 
-	font=helvetica36, command= lambda: buttonPressCallback(2), state=DISABLED)
-limeButton = Button(root, bg='#99FF00', text='lime block', 
-	font=helvetica36, command= lambda: buttonPressCallback(3), state=DISABLED)
-greenButton = Button(root, bg='#009900', text='green block', 
-	font=helvetica36, command= lambda: buttonPressCallback(4), state=DISABLED)
-blue1Button = Button(root, bg='#3B9C9C', text='blue block (my right)', 
-	font=helvetica36, command= lambda: buttonPressCallback(5), state=DISABLED)
-blue2Button = Button(root, bg='#3B9C9C', text='blue block (my left)', 
-	font=helvetica36, command= lambda: buttonPressCallback(6), state=DISABLED)
+buttonfont = tkFont.Font(family='Helvetica', size=24, weight='bold')
+red1Button = Button(root, bg='red', text='red', 
+	font=buttonfont, command= lambda: buttonPressCallback(0), state=DISABLED,
+	height=2, width=8, wraplength=50)
+red2Button = Button(root, bg='red', text='red', 
+	font=buttonfont, command= lambda: buttonPressCallback(7), state=DISABLED,
+	height=2, width=8, wraplength=50)
+orangeButton = Button(root, bg='orange', text='orange', 
+	font=buttonfont, command= lambda: buttonPressCallback(1), state=DISABLED,
+	height=6, width=12)
+yellowButton = Button(root, bg='yellow', text='yellow', 
+	font=buttonfont, command= lambda: buttonPressCallback(2), state=DISABLED,
+	height=2, width=8)
+limeButton = Button(root, bg='#99FF00', text='lime', 
+	font=buttonfont, command= lambda: buttonPressCallback(3), state=DISABLED,
+	height=6, width=12)
+greenButton = Button(root, bg='#009900', text='green', 
+	font=buttonfont, command= lambda: buttonPressCallback(4), state=DISABLED,
+	height=2, width=4)
+blue1Button = Button(root, bg='#3B9C9C', text='blue', 
+	font=buttonfont, command= lambda: buttonPressCallback(5), state=DISABLED,
+	height=2, width=8)
+blue2Button = Button(root, bg='#3B9C9C', text='blue', 
+	font=buttonfont, command= lambda: buttonPressCallback(6), state=DISABLED,
+	height=2, width=8)
 doneButton = Button(root, bg='grey', text='done', 
-	font=helvetica36, command=close, state=DISABLED)
+	font=buttonfont, command=close, state=DISABLED, height=1, width=8)
 
 buttonlist = [red1Button, red2Button, orangeButton,yellowButton, limeButton, \
 				greenButton, blue1Button, blue2Button]
 
-for button in buttonlist:
-	button.pack(fill=X)
+# for button in buttonlist:
+# 	button.pack(fill=X)
+# Lay out buttons according to real world spatial arrangement
+red1Button.grid(row=3,column=7)
+red2Button.grid(row=3,column=5)
+orangeButton.grid(row=1,column=4)
+yellowButton.grid(row=5,column=3)
+limeButton.grid(row=1,column=8)
+greenButton.grid(row=1,column=1)
+blue1Button.grid(row=5,column=8)
+blue2Button.grid(row=5,column=1)
 
-spacerFrame.pack()
-doneButton.pack(fill=X)
+rowspacer0 = Label(root,text='',height=2, width=10)
+rowspacer2 = Label(root,text='',height=2, width=10)
+rowspacer4 = Label(root,text='',height=2, width=10)
+rowspacer6 = Label(root,text='',height=7, width=10)
+rowspacer0.grid(row=0,column=0,columnspan=5)
+rowspacer2.grid(row=2,column=0,columnspan=5)
+rowspacer4.grid(row=4,column=0,columnspan=5)
+rowspacer6.grid(row=6,column=0,columnspan=5)
+
+colspacer0 = Label(root,text='',height=10, width=8)
+colspacer2 = Label(root,text='',height=10, width=2)
+colspacer6 = Label(root,text='',height=10, width=2)
+colspacer0.grid(column=0,row=0,rowspan=6)
+colspacer2.grid(column=2,row=0,rowspan=6)
+colspacer6.grid(column=6,row=0,rowspan=6)
+
+# spacerFrame.pack()
+doneButton.grid(row=7,column=8)
 
 root.mainloop()

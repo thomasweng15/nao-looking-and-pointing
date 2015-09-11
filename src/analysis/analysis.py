@@ -55,7 +55,11 @@ count = 0
 # Qualtrics parser only needs to be opened once because
 # there's only one Qualtrics file
 qualtricsfile = '../results/Postinteraction_questionnaire.csv'
-qParser = QualtricsParser(qualtricsfile)
+qParser = None
+try:
+	qParser = QualtricsParser(qualtricsfile)
+except:
+	print("ERROR: No qualtrics questionnaire found.")
 
 # Iterate through all files in a given directory
 filesToMatch = '../rosbags/p*.bag'
@@ -92,12 +96,13 @@ for fname in glob.glob(filesToMatch):
 	f_sysRt.write(sysvalRtResult + '\n')
 
 	# Get subjective survey response data
-	subjlist = qParser.getDataForUser(user)
-	if subjlist:
-		subjective = ','.join(subjlist)
-		f_survey.write(str(user) + ',' + cond + ',' + subjective + '\n')
-	else:
-		print("No survey response for user %d" % user)
+	if qParser:
+		subjlist = qParser.getDataForUser(user)
+		if subjlist:
+			subjective = ','.join(subjlist)
+			f_survey.write(str(user) + ',' + cond + ',' + subjective + '\n')
+		else:
+			print("No survey response for user %d" % user)
 
 
 	count += 1
