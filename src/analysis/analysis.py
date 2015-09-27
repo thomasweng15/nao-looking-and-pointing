@@ -48,6 +48,7 @@ f_sysAcc.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
 f_sysRt.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
 			   'c2_a1,c2_a2,c2_a3,c2_a4,'
 			   'c3_a1,c3_a2,c3_a3,c3_a4\n')
+f_task.write('id','nvb','interrupt','task1time','task2time','interrupttime\n')
 
 # Keep count of how many bags are opened (for fun)
 count = 0
@@ -75,7 +76,15 @@ for fname in glob.glob(filesToMatch):
 
 	# Get task completion times
 	taskTimes = parser.getCompletionTimes()
-	f_task.write(str(user) + ',' + cond + ',' + taskTimes + '\n')
+
+	# Get interruption times
+	interruptTime = parser.getInterruptionTime()
+
+	# Write HRI task info to file
+	f_task.write(str(user) + ',' 
+		+ cond + ',' 
+		+ taskTimes 
+		+ interruptTime + '\n')
 
 	# Get system validation information
 	sysval_cond1 = [1,2,3,4]

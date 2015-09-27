@@ -84,32 +84,67 @@ class RosbagParser():
 
 		# flags and counters
 		practiceDone = False
-		tmpTime = 0.0
-
+		#tmpTime = 0.0
+		startTime = 0.0
 
 		for topic, msg, t in self.bag.read_messages(
-			topics=['timer_info','script_status']):
+			topics=['timer_info','script_status','touch']):
 			# Listen for and calculate total task time
 			# for tasks 1 and 2
-			if topic == 'script_status':
-				if msg.data == 'TimerPracticeStop':
-					practiceDone = True
-			elif topic == 'timer_info' and practiceDone:
-				if msg.event == 'start':
-					tmpTime = msg.time
-				elif msg.event == 'stop':
-					totalTime = msg.time - tmpTime
-					times.append(totalTime)
-					totalTime = 0.0
+			if not practiceDone:
+				if topic == 'script_status':
+					if msg.data == 'TimerPracticeStop':
+						practiceDone = True
+			else:
+				if topic == 'script_status':
+					if msg.data=='InstructionsStop':
+						startTime = t
+				elif topic == 'touch':
+					print msg.touch_type
+					if msg.touch_type == 'HeadTactile':
+						startTime = t
+				elif topic == 'timer_info':
+					if msg.event == 'stop':
+						assert startTime is not 0.0 # sanity check
+						totalTime = t - startTime
+						times.append(totalTime.to_sec()) # convert to seconds
+						startTime = 0.0
+			# elif topic == 'timer_info' and practiceDone:
+			# 	if msg.event == 'start':
+			# 		tmpTime = msg.time
+			# 	elif msg.event == 'stop':
+			# 		totalTime = msg.time - tmpTime
+			# 		times.append(totalTime)
+			# 		totalTime = 0.0
 
 
 		# Make sure all the data came through
-		#assert len(times) == 2, "Expected 2 times, found %d" % len(times)
+		assert len(times) == 2, "Expected 2 times, found %d" % len(times)
 
 		strtimes = [str(t) for t in times]
 		datastring = ','.join(strtimes)
 		return datastring
 
+	def getInterruptionTime(self):
+		""" 
+		Report interruption time. If this is a no interruption condition,
+		this time will be 0.0.
+		"""
+
+		interruptStart = 0.0
+		interruptTotal = 0.0
+		
+		for topic, msg, t in self.bag.read_messages(
+			topics='script_status'):
+			if msg.data == "InterruptionStart":
+				interruptStart = t
+			elif msg.data == "InstructionsStop":
+				if interruptStart is not 0.0:
+					interruptTotal = t - interruptStart
+
+		if interruptTotal is not 0.0:
+			interruptTotal = interruptTotal.to_sec()
+		return ","+str(interruptTotal)
 
 	def getSysvalSelections(self, cond1objs, cond2objs, cond3objs):
 		""" 
