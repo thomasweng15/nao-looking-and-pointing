@@ -17,7 +17,7 @@ class QualtricsParser():
 		self.f = open(fname,'r')
 		self.csvreader = csv.reader(self.f)
 
-		self.id_idx = 11 # index of participant id
+		self.id_idx = 10 # index of participant id
 
 	def getDataForUser(self, user):
 		rowsToSkip = 2
@@ -48,7 +48,7 @@ f_sysAcc.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
 f_sysRt.write('id,c1_a1,c1_a2,c1_a3,c1_a4,'
 			   'c2_a1,c2_a2,c2_a3,c2_a4,'
 			   'c3_a1,c3_a2,c3_a3,c3_a4\n')
-f_task.write('id','nvb','interrupt','task1time','task2time','interrupttime\n')
+f_task.write('id,nvb,interrupt,task1time,task2time,interrupttime\n')
 
 # Keep count of how many bags are opened (for fun)
 count = 0
@@ -109,7 +109,7 @@ for fname in glob.glob(filesToMatch):
 		subjlist = qParser.getDataForUser(user)
 		if subjlist:
 			subjective = ','.join(subjlist)
-			f_survey.write(str(user) + ',' + cond + ',' + subjective + '\n')
+			f_survey.write(cond + ',' + subjective + '\n')
 		else:
 			print("No survey response for user %d" % user)
 

@@ -100,7 +100,6 @@ class RosbagParser():
 					if msg.data=='InstructionsStop':
 						startTime = t
 				elif topic == 'touch':
-					print msg.touch_type
 					if msg.touch_type == 'HeadTactile':
 						startTime = t
 				elif topic == 'timer_info':
