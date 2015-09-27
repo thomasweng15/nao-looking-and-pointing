@@ -7,11 +7,11 @@ Alright, I will give you the first set of instructions. Remember, this is a test
 
 # Task 1 here
 
-<0 small red> Put one of the small red blocks <3 large lime> on top of the large lime block. Then, <5 small blue> stack a small blue block on the red block. Put that arrangement <9 right bin> in the bin on your right.
+<0 small red> Put one of the small red blocks <3 large lime> on top of the large lime block. <4 small green> Put the small green block next to the red block. Then, <5 small blue> stack a small blue block on the red block. Put that arrangement <9 right bin> in the bin on your right.
 
 [1]
 
-<6 small blue> After that, put a small blue block  <2 small yellow> and a small yellow block side by side <1 large orange> on top of the large orange block. Put that arrangement <8 left bin> in the bin on your left.
+<6 small blue> After that, put a small blue block  <2 small yellow> and a small yellow block side by side <1 large orange> on top of the large orange block. <7 small red> Put a small red block across the top of those blocks. Put that arrangement <8 left bin> in the bin on your left.
 
 [1]
 

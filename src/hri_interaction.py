@@ -149,6 +149,7 @@ class InteractionController():
             'robot_behavior',                   # from program
             'timer_info',                       # from timer
             'sysval_selections',                # from sysval calibration menu
+            'touch',                            # from Nao sensing
             '-o',rosbagdir+'p'+str(usernum),    # file name of bag
             '-q'])                              # suppress output
 
@@ -272,9 +273,11 @@ class InteractionController():
 
         # Calculate the correct nonverbal behavior to indicate the target
         assert self.numObj < 9
-        if (self.nvb and                       # NVB is expected, and
-            target_id == 8 or target_id == 9): # target obj is a bin
-            action_type = 'lookandpoint'
+        if (target_id == 8 or target_id == 9): # target obj is a bin
+            if self.nvb:
+                action_type = 'lookandpoint'
+            else:
+                action_type == 'none'
         else:
             action_type = self.findNVBForRef(target_id, words_spoken)
             if not self.nvb:

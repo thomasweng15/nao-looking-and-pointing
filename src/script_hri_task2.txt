@@ -4,11 +4,11 @@ Okay. I will give you a new set of instructions. Please listen to all of my inst
 [1]
 [instructions 2 start]
 
-<0 small red> Put one of the small red blocks <2 small yellow> and the small yellow block side by side <3 large lime> on top of the large lime block. Put that arrangement <9 right bin> in the bin on your right.
+<0 small red> Put one of the small red blocks <2 small yellow> and the small yellow block side by side <3 large lime> on top of the large lime block. <5 small blue> Place a small blue block underneath the large lime block. Put that arrangement <9 right bin> in the bin on your right.
 
 [1]
 
-<4 small green> Next, stack the small green block <6 small blue> on one of the small blue blocks. Then, put those blocks <1 large orange> on top of the large orange block. Place that arrangement <9 right bin> in the bin to your right, as well.
+<4 small green> Next, stack the small green block <6 small blue> on one of the small blue blocks. Then, put those blocks <1 large orange> on top of the large orange block. <7 small red> Put a small red block next to that stack on top of the large orange block. Place that arrangement <9 right bin> in the bin to your right, as well.
 
 [1]
 
@@ -25,4 +25,4 @@ That concludes the instructions.
 
 [timer stop]
 
-Great job! This experiment is over. Thank you for playing with me. You can let the experimenter know that you are finished now.
+Great job! This concludes my part of the experiment. Thank you for playing with me. You can let the experimenter know that I am finished now.

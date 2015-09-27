@@ -11,7 +11,7 @@ import numpy as np
 import saliency_detector
 from matplotlib import pyplot as plt
 
-DEBUG = True
+DEBUG = False
 DISPLAYIMAGES = False
 
 class NVBModel():
@@ -135,6 +135,11 @@ class NVBModel():
         certainty_verbal_gaze = self.calculateCertaintyScore(target_id, score_verbal_gaze)
         certainty_verbal_point = self.calculateCertaintyScore(target_id, score_verbal_point)
         certainty_verbal_gaze_point = self.calculateCertaintyScore(target_id, score_verbal_gaze_point)
+
+        print("object " + str(target_id) + ": " + str(certainty_verbal)
+            + ", " + str(certainty_verbal_gaze) 
+            + ", " + str(certainty_verbal_point)
+            + ", " + str(certainty_verbal_gaze_point))
 
         # Select NVB based on certainty score
         if certainty_verbal > self.certainty_threshold:
